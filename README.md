@@ -1,16 +1,34 @@
-# rogu_mobile
+# ROGU MOBILE
 
-A new Flutter project.
+## Inicializar la APP
 
-## Getting Started
+### Descargar dependencias
+```
+flutter pub get
+```
+### Para ver los DISPOSITIVOS 
 
-This project is a starting point for a Flutter application.
+Nota: Asegúrate de que la Depuración USB esté activada en las opciones de desarrollador de tu dispositivo Android.
 
-A few resources to get you started if this is your first Flutter project:
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+```bash
+flutter devices
+```
+### El dispositivo que encuentres tiene id… para hacerlo CORRER 
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Correr la Aplicación en el Dispositivo
+Una vez que identifiques el ID de t
+
+```bash
+flutter run -d 23090RA98G 
+```
+
+## Si estas usando emulador
+```bash
+
+flutter emulators --launch "NOMBRE DEL EMULADOR"
+
+flutter emulators
+
+flutter run -d emulator-5554
+```
