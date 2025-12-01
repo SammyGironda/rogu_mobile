@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../theme/theme.dart';
 import '../widgets/bottom_nav.dart';
@@ -6,6 +7,7 @@ import '../widgets/gallery_section.dart';
 import '../widgets/footer_rogu.dart';
 import '../widgets/gradient_button.dart';
 import 'login_screen.dart';
+import '../state/providers.dart';
 
 class DashboardScreen extends StatefulWidget {
 	static const String routeName = '/dashboard';
@@ -29,7 +31,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 		final theme = Theme.of(context);
 			final bool isDark = theme.brightness == Brightness.dark;
 			final Color iconColor = isDark ? Colors.white : AppColors.neutral700;
-		return Scaffold(
+				return Scaffold(
 						appBar: AppBar(
 								titleSpacing: 0,
 								title: Padding(
@@ -39,10 +41,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
 											Container(
 												padding: const EdgeInsets.all(8),
 												decoration: BoxDecoration(
-													gradient: const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF06B6D4)]),
+													gradient: const LinearGradient(
+														colors: [Color(0xFF3B82F6), Color(0xFF06B6D4), Color(0xFF8B5CF6)],
+														begin: Alignment.topLeft,
+														end: Alignment.bottomRight,
+													),
 													borderRadius: BorderRadius.circular(12),
 												),
-												child: const Icon(Icons.emoji_events, color: Colors.white),
+												child: Image.asset('lib/assets/rogu_logo.png', width: 24, height: 24),
 											),
 											const SizedBox(width: 10),
 											Column(
@@ -53,7 +59,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
 												],
 											),
 											const Spacer(),
-																						GradientButton(
+																						// Mostrar login o perfil según estado de autenticación
+																						Consumer(builder: (context, ref, _) {
+																							final authState = ref.watch(authProvider);
+																							if (authState.isAuthenticated && authState.user != null) {
+																								final username = authState.user!.username;
+																								return InkWell(
+																									onTap: () => Navigator.pushNamed(context, '/profile'),
+																									borderRadius: BorderRadius.circular(20),
+																									child: Row(
+																										mainAxisSize: MainAxisSize.min,
+																										children: [
+																											const CircleAvatar(radius: 16, child: Icon(Icons.person, size: 18)),
+																											const SizedBox(width: 8),
+																											ConstrainedBox(
+																												constraints: const BoxConstraints(maxWidth: 140),
+																												child: Text(
+																													username,
+																													overflow: TextOverflow.ellipsis,
+																													style: const TextStyle(fontWeight: FontWeight.w600),
+																												),
+																											),
+																										],
+																									),
+																								);
+																							}
+																							return GradientButton(
 																								onPressed: () => Navigator.pushNamed(context, LoginScreen.routeName),
 																								padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
 																								child: Row(
@@ -64,7 +95,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 																										Text('Iniciar sesión'),
 																									],
 																								),
-																						),
+																							);
+																						}),
 											const SizedBox(width: 8),
 										],
 									),

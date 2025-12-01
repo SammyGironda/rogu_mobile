@@ -41,8 +41,17 @@ class AuthService {
 
         return {'success': true, 'user': user, 'token': token};
       } else {
-        final error = jsonDecode(response.body);
-        return {'success': false, 'message': error['message'] ?? 'Error al iniciar sesión'};
+        final decoded = response.body.isNotEmpty ? jsonDecode(response.body) : null;
+        String message = 'Error al iniciar sesión';
+        if (decoded != null) {
+          final m = decoded['message'];
+          if (m is String) {
+            message = m;
+          } else if (m is List) {
+            message = m.join(' • ');
+          }
+        }
+        return {'success': false, 'message': message};
       }
     } catch (e) {
       return {'success': false, 'message': 'Error de conexión: $e'};
@@ -62,6 +71,7 @@ class AuthService {
     required String usuario,
     required String correo,
     required String contrasena,
+    String? ci,
   }) async {
     try {
       // Paso 1: crear persona
@@ -75,7 +85,11 @@ class AuthService {
           'materno': materno.trim(),
           'telefono': telefono.trim(),
           'fechaNacimiento': fechaNacimiento,
-          'genero': genero,
+          // Mapear genero a enum esperado por backend
+          'genero': _mapGeneroEnum(genero),
+          // Documento opcional: enviar CI como documentoNumero y tipo por defecto CC
+          if (ci != null && ci.isNotEmpty) 'documentoNumero': ci.trim(),
+          if (ci != null && ci.isNotEmpty) 'documentoTipo': 'CC',
         }),
       );
 
@@ -128,6 +142,23 @@ class AuthService {
         'success': false,
         'message': 'Error de conexión: $e',
       };
+    }
+  }
+
+  // Convierte valores cortos a enum backend
+  String _mapGeneroEnum(String genero) {
+    switch (genero.toUpperCase()) {
+      case 'M':
+      case 'MASCULINO':
+        return 'MASCULINO';
+      case 'F':
+      case 'FEMENINO':
+        return 'FEMENINO';
+      case 'O':
+      case 'OTRO':
+        return 'OTRO';
+      default:
+        return 'OTRO';
     }
   }
 

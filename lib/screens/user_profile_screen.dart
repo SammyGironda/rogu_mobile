@@ -107,8 +107,8 @@ class UserProfileScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
                 _actionsCard(context, ref, theme),
-                const SizedBox(height: 24),
-                _aboutRole(theme),
+                const SizedBox(height: 32),
+                _bottomSessionActions(context, ref),
               ],
             ),
           ),
@@ -118,6 +118,11 @@ class UserProfileScreen extends ConsumerWidget {
   }
 
   Widget _personaCard(ThemeData theme, String username, String email, Persona? p) {
+    int? edad;
+    if (p?.fechaNacimiento != null) {
+      final hoy = DateTime.now();
+      edad = hoy.year - p!.fechaNacimiento!.year - ((hoy.month < p.fechaNacimiento!.month || (hoy.month == p.fechaNacimiento!.month && hoy.day < p.fechaNacimiento!.day)) ? 1 : 0);
+    }
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -158,6 +163,7 @@ class UserProfileScreen extends ConsumerWidget {
               children: [
                 Chip(label: Text('Usuario: $username')),
                 if (p?.genero != null && p!.genero!.isNotEmpty) Chip(label: Text('Género: ${p.genero}')),
+                if (edad != null) Chip(label: Text('Edad: $edad')),
               ],
             ),
             const Divider(height: 32),
@@ -199,6 +205,11 @@ class UserProfileScreen extends ConsumerWidget {
                   icon: const Icon(Icons.photo_camera),
                   label: const Text('Cambiar foto'),
                 ),
+                ElevatedButton.icon(
+                  onPressed: () => _makeOwner(context, ref),
+                  icon: const Icon(Icons.workspace_premium),
+                  label: const Text('Hacerme dueño'),
+                ),
               ],
             ),
           ],
@@ -207,23 +218,23 @@ class UserProfileScreen extends ConsumerWidget {
     );
   }
 
-  Widget _aboutRole(ThemeData theme) {
-    return Card(
-      color: AppColors.neutral800,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Acerca de tu rol', style: theme.textTheme.titleMedium?.copyWith(color: AppColors.neutral50)),
-            const SizedBox(height: 8),
-            Text(
-              'Como cliente, puedes reservar canchas, ver tu historial y gestionar próximas reservas.',
-              style: theme.textTheme.bodyMedium?.copyWith(color: AppColors.neutral100),
-            ),
-          ],
+  Widget _bottomSessionActions(BuildContext context, WidgetRef ref) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Expanded(
+          child: GradientButton(
+            onPressed: () async {
+              await ref.read(authProvider.notifier).logout();
+              if (context.mounted) {
+                Navigator.pushReplacementNamed(context, LoginScreen.routeName);
+              }
+            },
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            child: const Text('Cerrar sesión'),
+          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -264,6 +275,10 @@ class UserProfileScreen extends ConsumerWidget {
     final paternoCtrl = TextEditingController(text: persona.paterno ?? '');
     final maternoCtrl = TextEditingController(text: persona.materno ?? '');
     final telefonoCtrl = TextEditingController(text: persona.telefono ?? '');
+    DateTime? fechaNacimiento = persona.fechaNacimiento;
+    final fechaCtrl = TextEditingController(
+      text: fechaNacimiento == null ? '' : _fecha(fechaNacimiento),
+    );
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -275,6 +290,26 @@ class UserProfileScreen extends ConsumerWidget {
               TextField(controller: paternoCtrl, decoration: const InputDecoration(labelText: 'Apellido paterno')),
               TextField(controller: maternoCtrl, decoration: const InputDecoration(labelText: 'Apellido materno')),
               TextField(controller: telefonoCtrl, decoration: const InputDecoration(labelText: 'Teléfono')),
+              GestureDetector(
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: fechaNacimiento ?? DateTime(2000, 1, 1),
+                    firstDate: DateTime(1900, 1, 1),
+                    lastDate: DateTime.now(),
+                  );
+                  if (picked != null) {
+                    fechaNacimiento = picked;
+                    fechaCtrl.text = _fecha(picked);
+                  }
+                },
+                child: AbsorbPointer(
+                  child: TextField(
+                    controller: fechaCtrl,
+                    decoration: const InputDecoration(labelText: 'Fecha nacimiento (tocar para elegir)'),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -287,15 +322,31 @@ class UserProfileScreen extends ConsumerWidget {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sin token')));
                 return;
               }
+              final original = persona;
+              final updateFields = <String, dynamic>{};
+              void addIfChanged(String key, String? originalValue, String newValue) {
+                final trimmed = newValue.trim();
+                if (trimmed.isNotEmpty && trimmed != (originalValue ?? '')) {
+                  updateFields[key] = trimmed;
+                }
+              }
+              addIfChanged('nombres', original.nombres, nombresCtrl.text);
+              addIfChanged('paterno', original.paterno, paternoCtrl.text);
+              addIfChanged('materno', original.materno, maternoCtrl.text);
+              addIfChanged('telefono', original.telefono, telefonoCtrl.text);
+              if (fechaNacimiento != null && original.fechaNacimiento != fechaNacimiento) {
+                // Backend espera formato ISO (YYYY-MM-DD)
+                final iso = '${fechaNacimiento!.year.toString().padLeft(4,'0')}-${fechaNacimiento!.month.toString().padLeft(2,'0')}-${fechaNacimiento!.day.toString().padLeft(2,'0')}';
+                updateFields['fechaNacimiento'] = iso;
+              }
+              if (updateFields.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sin cambios para actualizar')));
+                return;
+              }
               final res = await ref.read(profileServiceProvider).updatePersona(
                 personaId: user!.personaId!,
                 token: token,
-                fields: {
-                  'nombres': nombresCtrl.text.trim(),
-                  'paterno': paternoCtrl.text.trim(),
-                  'materno': maternoCtrl.text.trim(),
-                  'telefono': telefonoCtrl.text.trim(),
-                },
+                fields: updateFields,
               );
               if (res['success'] == true) {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Datos actualizados')));
@@ -336,10 +387,21 @@ class UserProfileScreen extends ConsumerWidget {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sin token')));
                 return;
               }
-              final res = await ref.read(profileServiceProvider).changePassword(
+              if (newCtrl.text.trim().length < 8) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('La nueva contraseña debe tener mínimo 8 caracteres')));
+                return;
+              }
+              final user = ref.read(authProvider).user;
+              if (user == null) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Usuario no disponible')));
+                return;
+              }
+              final res = await ref.read(profileServiceProvider).changePasswordWithCurrent(
                 token: token,
-                currentPassword: currentCtrl.text,
-                newPassword: newCtrl.text,
+                userEmail: user.email,
+                currentPassword: currentCtrl.text.trim(),
+                userId: user.id,
+                newPassword: newCtrl.text.trim(),
               );
               if (res['success'] == true) {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Contraseña cambiada')));
@@ -366,5 +428,28 @@ class UserProfileScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _makeOwner(BuildContext context, WidgetRef ref) async {
+    final user = ref.read(authProvider).user;
+    if (user?.personaId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Persona no asociada')));
+      return;
+    }
+    final token = await ref.read(authServiceProvider).getToken();
+    if (token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sin token')));
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Creando perfil de dueño...')));
+    final res = await ref.read(profileServiceProvider).makeOwner(
+      personaId: user!.personaId!,
+      token: token,
+    );
+    if (res['success'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Solicitud de dueño registrada')));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${res['message']}')));
+    }
   }
 }

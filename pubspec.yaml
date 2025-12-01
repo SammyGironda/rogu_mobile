@@ -37,6 +37,7 @@ dependencies:
   flutter_riverpod: ^2.0.0
   http: ^1.2.0
   shared_preferences: ^2.5.3
+  url_launcher: ^6.3.0
 
 dev_dependencies:
   flutter_test:
@@ -66,6 +67,8 @@ flutter:
     # Declaramos ahora la carpeta general de imágenes y la subcarpeta courts.
     - lib/assets/images/
     - lib/assets/images/courts/
+    - lib/assets/
+    - lib/assets/rogu_logo.png
   # If you want to add custom fonts, declare them here and ensure the
   # referenced files exist in the paths below. Removed the default Jakarta
   # Sans entries because those font files aren't present in the repo.

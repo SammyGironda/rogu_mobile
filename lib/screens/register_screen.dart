@@ -23,7 +23,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _telefonoCtrl = TextEditingController();
   final _ciCtrl = TextEditingController();
   DateTime? _fechaNacimiento;
-  String _genero = 'M';
+  String _genero = 'MASCULINO';
 
   // Usuario
   final _usuarioCtrl = TextEditingController();
@@ -85,6 +85,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       usuario: _usuarioCtrl.text,
       correo: _correoCtrl.text.trim(),
       contrasena: _contrasenaCtrl.text,
+      ci: _ciCtrl.text.trim(),
     );
 
     if (!mounted) return;
@@ -125,12 +126,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(10),
+                        padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF06B6D4)]),
-                          borderRadius: BorderRadius.circular(14),
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF3B82F6), Color(0xFF06B6D4), Color(0xFF8B5CF6)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(Icons.emoji_events, color: Colors.white, size: 28),
+                        child: Image.asset('lib/assets/rogu_logo.png', width: 28, height: 28),
                       ),
                       const SizedBox(width: 10),
                       Column(
@@ -238,9 +243,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             border: OutlineInputBorder(),
                           ),
                           items: const [
-                            DropdownMenuItem(value: 'M', child: Text('Masculino')),
-                            DropdownMenuItem(value: 'F', child: Text('Femenino')),
-                            DropdownMenuItem(value: 'O', child: Text('Otro')),
+                            DropdownMenuItem(value: 'MASCULINO', child: Text('Masculino')),
+                            DropdownMenuItem(value: 'FEMENINO', child: Text('Femenino')),
+                            DropdownMenuItem(value: 'OTRO', child: Text('Otro')),
                           ],
                           onChanged: (val) {
                             if (val != null) {
