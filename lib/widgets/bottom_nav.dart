@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../theme/theme.dart';
+import '../state/providers.dart';
+import '../services/gestion_service.dart';
+import '../screens/login_screen.dart';
+import '../screens/new_reservation_screen.dart';
+import '../screens/gestion_canchas_screen.dart';
 
 /// Reusable BottomNavigationBar that maps fixed indices to named routes.
-class BottomNavBar extends StatelessWidget {
+class BottomNavBar extends ConsumerWidget {
   const BottomNavBar({super.key});
 
   static const List<String> _routeNames = [
@@ -21,21 +27,62 @@ class BottomNavBar extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
     final Color selectedColor = AppColors.primary600;
-    final Color unselectedColor = isDark ? Colors.white70 : AppColors.neutral500;
+    final Color unselectedColor = isDark
+        ? Colors.white70
+        : AppColors.neutral500;
 
     final String? currentRoute = ModalRoute.of(context)?.settings.name;
     final int currentIndex = _currentIndexFromRoute(currentRoute);
 
     return BottomNavigationBar(
       currentIndex: currentIndex,
-      onTap: (idx) {
+      onTap: (idx) async {
         final String dest = _routeNames[idx];
+        if (dest == '/new-reservation') {
+          // Gating for Gestión section from bottom nav index 2
+          final auth = ref.read(authProvider);
+          if (!auth.isAuthenticated) {
+            Navigator.pushNamed(context, LoginScreen.routeName);
+            return;
+          }
+          final personaId = int.tryParse(auth.user?.personaId ?? '');
+          if (personaId == null) {
+            Navigator.pushReplacementNamed(
+                context, NewReservationScreen.routeName);
+            return;
+          }
+          final result = await gestionService
+              .resolveGestionEntryForPersona(personaId);
+          if (result['success'] != true) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  result['message']?.toString() ?? 'Acceso restringido',
+                ),
+              ),
+            );
+            return;
+          }
+          final sede = result['sede'];
+          if (sede == null) {
+            Navigator.pushReplacementNamed(
+                context, NewReservationScreen.routeName);
+          } else {
+            if (GestionCanchasScreen.routeName != currentRoute) {
+              Navigator.pushReplacementNamed(
+                context,
+                GestionCanchasScreen.routeName,
+                arguments: {'sede': sede},
+              );
+            }
+          }
+          return;
+        }
         if (dest != currentRoute) {
-          // replace so we don't stack routes
           Navigator.pushReplacementNamed(context, dest);
         }
       },
@@ -44,7 +91,10 @@ class BottomNavBar extends StatelessWidget {
       items: const [
         BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Inicio'),
         BottomNavigationBarItem(icon: Icon(Icons.history), label: 'Historial'),
-        BottomNavigationBarItem(icon: Icon(Icons.event_available), label: 'Gestionar'),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.event_available),
+          label: 'Gestionar',
+        ),
         BottomNavigationBarItem(icon: Icon(Icons.qr_code), label: 'QR'),
         BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Perfil'),
       ],

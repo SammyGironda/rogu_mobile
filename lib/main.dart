@@ -14,6 +14,7 @@ import 'screens/courts_screen.dart';
 import 'screens/new_reservation_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
+import 'screens/gestion_canchas_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,6 +34,14 @@ class MyApp extends ConsumerWidget {
       title: 'ROGU Mobile',
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
+      // Fija el escalado de texto del sistema a 1.0 para evitar overflows globales
+      builder: (context, child) {
+        final mq = MediaQuery.of(context);
+        return MediaQuery(
+          data: mq.copyWith(textScaleFactor: 1.0),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       // Cambiamos la pantalla inicial al Dashboard según solicitud.
       initialRoute: DashboardScreen.routeName,
       routes: {
@@ -41,12 +50,20 @@ class MyApp extends ConsumerWidget {
         QRScannerScreen.routeName: (context) => const QRScannerScreen(),
         UserProfileScreen.routeName: (context) => const UserProfileScreen(),
         BookingFormScreen.routeName: (context) => const BookingFormScreen(),
-        BookingHistoryScreen.routeName: (context) => const BookingHistoryScreen(),
+        BookingHistoryScreen.routeName: (context) =>
+            const BookingHistoryScreen(),
         DenunciaScreen.routeName: (context) => const DenunciaScreen(),
         CourtsScreen.routeName: (context) => const CourtsScreen(),
-        NewReservationScreen.routeName: (context) => const NewReservationScreen(),
+        NewReservationScreen.routeName: (context) =>
+            const NewReservationScreen(),
         LoginScreen.routeName: (context) => const LoginScreen(),
         RegisterScreen.routeName: (context) => const RegisterScreen(),
+        GestionCanchasScreen.routeName: (context) {
+          final args =
+              ModalRoute.of(context)!.settings.arguments
+                  as Map<String, dynamic>;
+          return GestionCanchasScreen(sedeArgs: args);
+        },
         // FieldDetailScreen y SelectSlotScreen usan MaterialPageRoute con argumentos dinámicos
       },
     );

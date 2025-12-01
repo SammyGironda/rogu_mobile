@@ -46,7 +46,12 @@ class ROGUFooter extends StatelessWidget {
               alignment: WrapAlignment.spaceBetween,
               runSpacing: 12,
               children: [
-                Text('© ${DateTime.now().year} ROGU. Todos los derechos reservados.', style: theme.textTheme.bodySmall?.copyWith(color: AppColors.neutral300)),
+                Text(
+                  '© ${DateTime.now().year} ROGU. Todos los derechos reservados.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.neutral300,
+                  ),
+                ),
                 Wrap(
                   spacing: 16,
                   children: [
@@ -81,19 +86,33 @@ class _BrandColumn extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [Color(0xFF06B6D4), Color(0xFF0EA5E9), Color(0xFF6366F1)]),
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFF06B6D4),
+                    Color(0xFF0EA5E9),
+                    Color(0xFF6366F1),
+                  ],
+                ),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Icon(Icons.sports_soccer, color: Colors.white),
             ),
             const SizedBox(width: 12),
-            Text('ROGÜ', style: theme.textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
+            Text(
+              'ROGÜ',
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 12),
         Text(
           'Plataforma para gestión de reservas y espacios deportivos. Encuentra canchas por sede, deporte y disponibilidad con una experiencia ágil.',
-          style: theme.textTheme.bodySmall?.copyWith(color: AppColors.neutral300),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: AppColors.neutral300,
+          ),
         ),
         const SizedBox(height: 16),
         Wrap(
@@ -122,7 +141,10 @@ class _Badge extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white24),
       ),
-      child: Text(text, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+      child: Text(
+        text,
+        style: const TextStyle(color: Colors.white70, fontSize: 12),
+      ),
     );
   }
 }
@@ -136,10 +158,16 @@ class _ContactColumn extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Contacto', style: theme.textTheme.titleSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.w600)),
+          Text(
+            'Contacto',
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           const SizedBox(height: 12),
           _ContactItem(icon: Icons.email, text: 'info@rogu.app'),
-            _ContactItem(icon: Icons.phone, text: '+591 700 12345'),
+          _ContactItem(icon: Icons.phone, text: '+591 700 12345'),
           _ContactItem(icon: Icons.location_on, text: 'La Paz, Bolivia'),
           const SizedBox(height: 16),
           Wrap(
@@ -170,7 +198,12 @@ class _ContactItem extends StatelessWidget {
           Icon(icon, size: 18, color: AppColors.primary300),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(text, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.neutral300)),
+            child: Text(
+              text,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.neutral300),
+            ),
           ),
         ],
       ),
@@ -207,6 +240,9 @@ class _SocialIcon extends StatelessWidget {
 }
 
 Widget _LegalLink(String text) => GestureDetector(
-      onTap: () {},
-      child: Text(text, style: const TextStyle(color: AppColors.neutral300, fontSize: 12)),
-    );
+  onTap: () {},
+  child: Text(
+    text,
+    style: const TextStyle(color: AppColors.neutral300, fontSize: 12),
+  ),
+);

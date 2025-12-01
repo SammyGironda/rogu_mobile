@@ -44,5 +44,6 @@ class Stats {
   }
 
   @override
-  String toString() => 'Stats(revenue: $totalRevenue, bookings: $totalBookings, occupancy: $occupancyPercent)';
+  String toString() =>
+      'Stats(revenue: $totalRevenue, bookings: $totalBookings, occupancy: $occupancyPercent)';
 }

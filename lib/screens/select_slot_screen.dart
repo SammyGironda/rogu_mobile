@@ -7,18 +7,23 @@ import '../state/providers.dart';
 import '../theme/theme.dart';
 import 'login_screen.dart';
 
-final _dateProvider = StateProvider.autoDispose<DateTime>((ref) => DateTime.now());
-final _selectedSlotsProvider = StateProvider.autoDispose<List<ReservationSlot>>((ref) => []);
+final _dateProvider = StateProvider.autoDispose<DateTime>(
+  (ref) => DateTime.now(),
+);
+final _selectedSlotsProvider = StateProvider.autoDispose<List<ReservationSlot>>(
+  (ref) => [],
+);
 
-final _reservationsProvider = FutureProvider.family.autoDispose<List<Map<String, dynamic>>, int>((ref, idCancha) async {
-  final date = ref.watch(_dateProvider);
-  return reservationsService.getReservationsForField(idCancha, date);
-});
+final _reservationsProvider = FutureProvider.family
+    .autoDispose<List<Map<String, dynamic>>, int>((ref, idCancha) async {
+      final date = ref.watch(_dateProvider);
+      return reservationsService.getReservationsForField(idCancha, date);
+    });
 
 class SelectSlotScreen extends ConsumerWidget {
   final Field field;
   final Venue venue;
-  
+
   const SelectSlotScreen({super.key, required this.field, required this.venue});
 
   @override
@@ -43,9 +48,15 @@ class SelectSlotScreen extends ConsumerWidget {
                   children: [
                     _DatePicker(date: date, idCancha: field.id),
                     const SizedBox(height: 16),
-                    Text('Selecciona los horarios', style: Theme.of(context).textTheme.titleMedium),
+                    Text(
+                      'Selecciona los horarios',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                     const SizedBox(height: 4),
-                    Text('Puedes seleccionar múltiples horas consecutivas', style: Theme.of(context).textTheme.bodySmall),
+                    Text(
+                      'Puedes seleccionar múltiples horas consecutivas',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                     const SizedBox(height: 12),
                     Wrap(
                       spacing: 10,
@@ -54,22 +65,41 @@ class SelectSlotScreen extends ConsumerWidget {
                         final disabled = s.ocupado;
                         final isSelected = selectedSlots.contains(s);
                         return ElevatedButton(
-                          onPressed: disabled ? null : () {
-                             _toggleSlot(ref, s);
-                          },
+                          onPressed: disabled
+                              ? null
+                              : () {
+                                  _toggleSlot(ref, s);
+                                },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: disabled 
-                                ? AppColors.neutral300 
-                                : (isSelected ? AppColors.primary700 : AppColors.primary500),
+                            backgroundColor: disabled
+                                ? AppColors.neutral300
+                                : (isSelected
+                                      ? AppColors.primary700
+                                      : AppColors.primary500),
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                            side: isSelected ? const BorderSide(color: Colors.white, width: 2) : null,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 18,
+                              vertical: 12,
+                            ),
+                            side: isSelected
+                                ? const BorderSide(
+                                    color: Colors.white,
+                                    width: 2,
+                                  )
+                                : null,
                           ),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text('${s.horaInicio.substring(0,5)} - ${s.horaFin.substring(0,5)}'),
-                              disabled ? const Text('Ocupado', style: TextStyle(fontSize: 11)) : const SizedBox.shrink(),
+                              Text(
+                                '${s.horaInicio.substring(0, 5)} - ${s.horaFin.substring(0, 5)}',
+                              ),
+                              disabled
+                                  ? const Text(
+                                      'Ocupado',
+                                      style: TextStyle(fontSize: 11),
+                                    )
+                                  : const SizedBox.shrink(),
                             ],
                           ),
                         );
@@ -85,7 +115,13 @@ class SelectSlotScreen extends ConsumerWidget {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.white,
-                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: const Offset(0, -2))],
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 4,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
               ),
               child: SafeArea(
                 child: Column(
@@ -95,7 +131,13 @@ class SelectSlotScreen extends ConsumerWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text('${selectedSlots.length} horas seleccionadas'),
-                        Text('Total: \$${_calculateTotal(selectedSlots.length)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                        Text(
+                          'Total: \$${_calculateTotal(selectedSlots.length)}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 12),
@@ -123,7 +165,9 @@ class SelectSlotScreen extends ConsumerWidget {
   void _toggleSlot(WidgetRef ref, ReservationSlot slot) {
     final current = ref.read(_selectedSlotsProvider);
     if (current.contains(slot)) {
-      ref.read(_selectedSlotsProvider.notifier).state = current.where((x) => x != slot).toList();
+      ref.read(_selectedSlotsProvider.notifier).state = current
+          .where((x) => x != slot)
+          .toList();
     } else {
       ref.read(_selectedSlotsProvider.notifier).state = [...current, slot];
     }
@@ -134,9 +178,15 @@ class SelectSlotScreen extends ConsumerWidget {
     return price * hours;
   }
 
-  void _confirm(BuildContext context, WidgetRef ref, AuthState authState) async {
+  void _confirm(
+    BuildContext context,
+    WidgetRef ref,
+    AuthState authState,
+  ) async {
     if (!authState.isAuthenticated || authState.user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Debes iniciar sesión para reservar')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Debes iniciar sesión para reservar')),
+      );
       Navigator.pushNamed(context, LoginScreen.routeName);
       return;
     }
@@ -147,22 +197,28 @@ class SelectSlotScreen extends ConsumerWidget {
 
     // Check continuity
     for (int i = 0; i < selected.length - 1; i++) {
-      if (selected[i].horaFin != selected[i+1].horaInicio) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Por favor selecciona horarios consecutivos')));
+      if (selected[i].horaFin != selected[i + 1].horaInicio) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Por favor selecciona horarios consecutivos'),
+          ),
+        );
         return;
       }
     }
 
     final startSlot = selected.first;
     final endSlot = selected.last;
-    
+
     final date = ref.read(_dateProvider);
     final start = _buildDateTime(date, startSlot.horaInicio);
     final end = _buildDateTime(date, endSlot.horaFin);
 
     try {
       final resp = await reservationsService.createReservation(
-        idCliente: int.parse(authState.user!.id), // Assuming ID is int compatible
+        idCliente: int.parse(
+          authState.user!.id,
+        ), // Assuming ID is int compatible
         idCancha: field.id,
         inicia: start,
         termina: end,
@@ -172,20 +228,22 @@ class SelectSlotScreen extends ConsumerWidget {
         montoExtra: 0,
         token: await ref.read(authServiceProvider).getToken(),
       );
-      
+
       if (context.mounted) {
         showDialog(
           context: context,
           builder: (_) => AlertDialog(
             title: const Text('Reserva creada'),
-            content: Text('Tu reserva ha sido confirmada.\nID: ${resp['reserva']?['idReserva'] ?? 'N/A'}'),
+            content: Text(
+              'Tu reserva ha sido confirmada.\nID: ${resp['reserva']?['idReserva'] ?? 'N/A'}',
+            ),
             actions: [
               TextButton(
-                onPressed: () { 
+                onPressed: () {
                   Navigator.pop(context); // Close dialog
                   Navigator.pop(context); // Close screen
-                }, 
-                child: const Text('Aceptar')
+                },
+                child: const Text('Aceptar'),
               ),
             ],
           ),
@@ -193,7 +251,9 @@ class SelectSlotScreen extends ConsumerWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
@@ -213,7 +273,12 @@ class _DatePicker extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Row(
       children: [
-        Expanded(child: Text('Fecha: ${date.toIso8601String().split('T').first}', style: Theme.of(context).textTheme.bodyLarge)),
+        Expanded(
+          child: Text(
+            'Fecha: ${date.toIso8601String().split('T').first}',
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+        ),
         TextButton(
           onPressed: () async {
             final picked = await showDatePicker(
@@ -229,7 +294,7 @@ class _DatePicker extends ConsumerWidget {
             }
           },
           child: const Text('Cambiar'),
-        )
+        ),
       ],
     );
   }

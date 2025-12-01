@@ -7,11 +7,15 @@ import '../../../widgets/app_drawer.dart';
 import '../../../screens/login_screen.dart';
 import '../../../widgets/gradient_button.dart';
 
-final _historyProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
-  final authState = ref.watch(authProvider);
-  if (authState.user == null) return [];
-  return reservationsService.getReservationsForUser(int.parse(authState.user!.id));
-});
+final _historyProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>(
+  (ref) async {
+    final authState = ref.watch(authProvider);
+    if (authState.user == null) return [];
+    return reservationsService.getReservationsForUser(
+      int.parse(authState.user!.id),
+    );
+  },
+);
 
 class BookingHistoryScreen extends ConsumerWidget {
   static const String routeName = '/booking_history';
@@ -32,8 +36,12 @@ class BookingHistoryScreen extends ConsumerWidget {
               const Text('Inicia sesión para ver tus reservas'),
               const SizedBox(height: 16),
               GradientButton(
-                onPressed: () => Navigator.pushNamed(context, LoginScreen.routeName),
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                onPressed: () =>
+                    Navigator.pushNamed(context, LoginScreen.routeName),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 12,
+                ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: const [
@@ -70,7 +78,9 @@ class BookingHistoryScreen extends ConsumerWidget {
               final sede = cancha['sede'] ?? {};
               DateTime fecha;
               try {
-                fecha = DateTime.parse(reserva['fechaReserva'] ?? reserva['iniciaEn']);
+                fecha = DateTime.parse(
+                  reserva['fechaReserva'] ?? reserva['iniciaEn'],
+                );
               } catch (_) {
                 fecha = DateTime.now();
               }
@@ -82,15 +92,26 @@ class BookingHistoryScreen extends ConsumerWidget {
                 child: ListTile(
                   leading: CircleAvatar(
                     backgroundColor: _getStatusColor(estado),
-                    child: const Icon(Icons.calendar_today, color: Colors.white),
+                    child: const Icon(
+                      Icons.calendar_today,
+                      color: Colors.white,
+                    ),
                   ),
                   title: Text(cancha['nombre'] ?? 'Cancha'),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(sede['nombre'] ?? 'Sede desconocida'),
-                      Text('${fecha.day}/${fecha.month}/${fecha.year} • $horaInicio - $horaFin'),
-                      Text('Estado: $estado', style: TextStyle(color: _getStatusColor(estado), fontWeight: FontWeight.bold)),
+                      Text(
+                        '${fecha.day}/${fecha.month}/${fecha.year} • $horaInicio - $horaFin',
+                      ),
+                      Text(
+                        'Estado: $estado',
+                        style: TextStyle(
+                          color: _getStatusColor(estado),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ],
                   ),
                   isThreeLine: true,

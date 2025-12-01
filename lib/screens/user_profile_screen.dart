@@ -7,6 +7,7 @@ import '../widgets/gradient_button.dart';
 import '../widgets/app_drawer.dart';
 import '../models/persona.dart';
 import 'login_screen.dart';
+import '../services/gestion_service.dart';
 
 // Provider separado para obtener Persona completa
 final personaProvider = FutureProvider.autoDispose<Persona?>((ref) async {
@@ -31,29 +32,13 @@ class UserProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
     final user = authState.user;
-    if (user == null) {
-      return Scaffold(
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: SizedBox(
-              width: 280,
-              child: GradientButton(
-                onPressed: () => Navigator.pushReplacementNamed(context, LoginScreen.routeName),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(Icons.lock_open, color: Colors.white),
-                    SizedBox(width: 8),
-                    Text('Iniciar Sesión'),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
+    if (!authState.isAuthenticated || user == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (ModalRoute.of(context)?.isCurrent ?? true) {
+          Navigator.pushReplacementNamed(context, LoginScreen.routeName);
+        }
+      });
+      return const SizedBox.shrink();
     }
 
     final personaAsync = ref.watch(personaProvider);
@@ -79,7 +64,7 @@ class UserProfileScreen extends ConsumerWidget {
                 Navigator.pushReplacementNamed(context, LoginScreen.routeName);
               }
             },
-          )
+          ),
         ],
       ),
       drawer: const AppDrawer(),
@@ -103,7 +88,8 @@ class UserProfileScreen extends ConsumerWidget {
                       child: Text('Error cargando datos personales: $e'),
                     ),
                   ),
-                  data: (persona) => _personaCard(theme, user.username, user.email, persona),
+                  data: (persona) =>
+                      _personaCard(theme, user.username, user.email, persona),
                 ),
                 const SizedBox(height: 16),
                 _actionsCard(context, ref, theme),
@@ -117,11 +103,23 @@ class UserProfileScreen extends ConsumerWidget {
     );
   }
 
-  Widget _personaCard(ThemeData theme, String username, String email, Persona? p) {
+  Widget _personaCard(
+    ThemeData theme,
+    String username,
+    String email,
+    Persona? p,
+  ) {
     int? edad;
     if (p?.fechaNacimiento != null) {
       final hoy = DateTime.now();
-      edad = hoy.year - p!.fechaNacimiento!.year - ((hoy.month < p.fechaNacimiento!.month || (hoy.month == p.fechaNacimiento!.month && hoy.day < p.fechaNacimiento!.day)) ? 1 : 0);
+      edad =
+          hoy.year -
+          p!.fechaNacimiento!.year -
+          ((hoy.month < p.fechaNacimiento!.month ||
+                  (hoy.month == p.fechaNacimiento!.month &&
+                      hoy.day < p.fechaNacimiento!.day))
+              ? 1
+              : 0);
     }
     return Card(
       child: Padding(
@@ -134,7 +132,10 @@ class UserProfileScreen extends ConsumerWidget {
                 CircleAvatar(
                   radius: 36,
                   backgroundColor: AppColors.primary500,
-                  backgroundImage: (p?.urlFoto != null && (p!.urlFoto?.isNotEmpty ?? false)) ? NetworkImage(p.urlFoto!) : null,
+                  backgroundImage:
+                      (p?.urlFoto != null && (p!.urlFoto?.isNotEmpty ?? false))
+                      ? NetworkImage(p.urlFoto!)
+                      : null,
                   child: (p?.urlFoto == null || (p!.urlFoto?.isEmpty ?? true))
                       ? const Icon(Icons.person, size: 36, color: Colors.white)
                       : null,
@@ -144,16 +145,26 @@ class UserProfileScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(p?.nombres ?? username, style: theme.textTheme.titleLarge),
+                      Text(
+                        p?.nombres ?? username,
+                        style: theme.textTheme.titleLarge,
+                      ),
                       if (p != null)
-                        Text([
-                          p.paterno,
-                          p.materno,
-                        ].where((e) => e != null && e.isNotEmpty).join(' ')),
-                      Text(email, style: theme.textTheme.bodyMedium?.copyWith(color: AppColors.neutral600)),
+                        Text(
+                          [
+                            p.paterno,
+                            p.materno,
+                          ].where((e) => e != null && e.isNotEmpty).join(' '),
+                        ),
+                      Text(
+                        email,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: AppColors.neutral600,
+                        ),
+                      ),
                     ],
                   ),
-                )
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -162,7 +173,8 @@ class UserProfileScreen extends ConsumerWidget {
               runSpacing: 4,
               children: [
                 Chip(label: Text('Usuario: $username')),
-                if (p?.genero != null && p!.genero!.isNotEmpty) Chip(label: Text('Género: ${p.genero}')),
+                if (p?.genero != null && p!.genero!.isNotEmpty)
+                  Chip(label: Text('Género: ${p.genero}')),
                 if (edad != null) Chip(label: Text('Edad: $edad')),
               ],
             ),
@@ -178,6 +190,9 @@ class UserProfileScreen extends ConsumerWidget {
   }
 
   Widget _actionsCard(BuildContext context, WidgetRef ref, ThemeData theme) {
+    final auth = ref.watch(authProvider);
+    final personaIdStr = auth.user?.personaId;
+    final personaId = int.tryParse(personaIdStr ?? '');
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -205,10 +220,44 @@ class UserProfileScreen extends ConsumerWidget {
                   icon: const Icon(Icons.photo_camera),
                   label: const Text('Cambiar foto'),
                 ),
-                ElevatedButton.icon(
-                  onPressed: () => _makeOwner(context, ref),
-                  icon: const Icon(Icons.workspace_premium),
-                  label: const Text('Hacerme dueño'),
+                // Mostrar estado de dueño/admin en lugar de botón cuando corresponda
+                FutureBuilder<Map<String, bool>>(
+                  future: () async {
+                    if (personaId == null)
+                      return {'isOwner': false, 'isAdmin': false};
+                    final res = await gestionService
+                        .resolveGestionEntryForPersona(personaId);
+                    final isOwner = (res['isOwner'] == true);
+                    final isAdmin = (res['isAdmin'] == true);
+                    return {'isOwner': isOwner, 'isAdmin': isAdmin};
+                  }(),
+                  builder: (context, snap) {
+                    final data = snap.data;
+                    final isOwner = data?['isOwner'] == true;
+                    final isAdmin = data?['isAdmin'] == true;
+                    final hideButton = isOwner || isAdmin;
+                    if (hideButton) {
+                      String label = 'Verificando rol...';
+                      if (snap.connectionState == ConnectionState.done) {
+                        label = isOwner ? 'Eres dueño' : 'Eres administrador';
+                      }
+                      return Chip(
+                        avatar: const Icon(
+                          Icons.workspace_premium,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                        label: Text(label),
+                        backgroundColor: AppColors.primary500,
+                        labelStyle: const TextStyle(color: Colors.white),
+                      );
+                    }
+                    return ElevatedButton.icon(
+                      onPressed: () => _makeOwner(context, ref),
+                      icon: const Icon(Icons.workspace_premium),
+                      label: const Text('Hacerme dueño'),
+                    );
+                  },
                 ),
               ],
             ),
@@ -245,7 +294,12 @@ class UserProfileScreen extends ConsumerWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: const TextStyle(color: Colors.grey)),
-          Flexible(child: Text(value.isEmpty ? '-' : value, overflow: TextOverflow.ellipsis)),
+          Flexible(
+            child: Text(
+              value.isEmpty ? '-' : value,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
     );
@@ -255,7 +309,8 @@ class UserProfileScreen extends ConsumerWidget {
     if (p == null) return '-';
     final tipo = p.documentoTipo;
     final num = p.documentoNumero;
-    if ((tipo == null || tipo.isEmpty) && (num == null || num.isEmpty)) return '-';
+    if ((tipo == null || tipo.isEmpty) && (num == null || num.isEmpty))
+      return '-';
     return [tipo, num].where((e) => e != null && e.isNotEmpty).join(' ');
   }
 
@@ -268,7 +323,9 @@ class UserProfileScreen extends ConsumerWidget {
     final persona = ref.read(personaProvider).value;
     final user = ref.read(authProvider).user;
     if (persona == null || user?.personaId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sin datos para editar')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Sin datos para editar')));
       return;
     }
     final nombresCtrl = TextEditingController(text: persona.nombres);
@@ -286,10 +343,26 @@ class UserProfileScreen extends ConsumerWidget {
         content: SingleChildScrollView(
           child: Column(
             children: [
-              TextField(controller: nombresCtrl, decoration: const InputDecoration(labelText: 'Nombres')),
-              TextField(controller: paternoCtrl, decoration: const InputDecoration(labelText: 'Apellido paterno')),
-              TextField(controller: maternoCtrl, decoration: const InputDecoration(labelText: 'Apellido materno')),
-              TextField(controller: telefonoCtrl, decoration: const InputDecoration(labelText: 'Teléfono')),
+              TextField(
+                controller: nombresCtrl,
+                decoration: const InputDecoration(labelText: 'Nombres'),
+              ),
+              TextField(
+                controller: paternoCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Apellido paterno',
+                ),
+              ),
+              TextField(
+                controller: maternoCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Apellido materno',
+                ),
+              ),
+              TextField(
+                controller: telefonoCtrl,
+                decoration: const InputDecoration(labelText: 'Teléfono'),
+              ),
               GestureDetector(
                 onTap: () async {
                   final picked = await showDatePicker(
@@ -306,7 +379,9 @@ class UserProfileScreen extends ConsumerWidget {
                 child: AbsorbPointer(
                   child: TextField(
                     controller: fechaCtrl,
-                    decoration: const InputDecoration(labelText: 'Fecha nacimiento (tocar para elegir)'),
+                    decoration: const InputDecoration(
+                      labelText: 'Fecha nacimiento (tocar para elegir)',
+                    ),
                   ),
                 ),
               ),
@@ -314,46 +389,66 @@ class UserProfileScreen extends ConsumerWidget {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
           ElevatedButton(
             onPressed: () async {
               final token = await ref.read(authServiceProvider).getToken();
               if (token == null) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sin token')));
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('Sin token')));
                 return;
               }
               final original = persona;
               final updateFields = <String, dynamic>{};
-              void addIfChanged(String key, String? originalValue, String newValue) {
+              void addIfChanged(
+                String key,
+                String? originalValue,
+                String newValue,
+              ) {
                 final trimmed = newValue.trim();
                 if (trimmed.isNotEmpty && trimmed != (originalValue ?? '')) {
                   updateFields[key] = trimmed;
                 }
               }
+
               addIfChanged('nombres', original.nombres, nombresCtrl.text);
               addIfChanged('paterno', original.paterno, paternoCtrl.text);
               addIfChanged('materno', original.materno, maternoCtrl.text);
               addIfChanged('telefono', original.telefono, telefonoCtrl.text);
-              if (fechaNacimiento != null && original.fechaNacimiento != fechaNacimiento) {
+              if (fechaNacimiento != null &&
+                  original.fechaNacimiento != fechaNacimiento) {
                 // Backend espera formato ISO (YYYY-MM-DD)
-                final iso = '${fechaNacimiento!.year.toString().padLeft(4,'0')}-${fechaNacimiento!.month.toString().padLeft(2,'0')}-${fechaNacimiento!.day.toString().padLeft(2,'0')}';
+                final iso =
+                    '${fechaNacimiento!.year.toString().padLeft(4, '0')}-${fechaNacimiento!.month.toString().padLeft(2, '0')}-${fechaNacimiento!.day.toString().padLeft(2, '0')}';
                 updateFields['fechaNacimiento'] = iso;
               }
               if (updateFields.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sin cambios para actualizar')));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Sin cambios para actualizar')),
+                );
                 return;
               }
-              final res = await ref.read(profileServiceProvider).updatePersona(
-                personaId: user!.personaId!,
-                token: token,
-                fields: updateFields,
-              );
+              final res = await ref
+                  .read(profileServiceProvider)
+                  .updatePersona(
+                    personaId: user!.personaId!,
+                    token: token,
+                    fields: updateFields,
+                  );
               if (res['success'] == true) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Datos actualizados')));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Datos actualizados')),
+                );
                 // Consumir el valor de retorno para evitar lint de unused result
                 final _ = ref.refresh(personaProvider);
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${res['message']}')));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Error: ${res['message']}')),
+                );
               }
               if (ctx.mounted) Navigator.pop(ctx);
             },
@@ -374,39 +469,66 @@ class UserProfileScreen extends ConsumerWidget {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: currentCtrl, decoration: const InputDecoration(labelText: 'Actual'), obscureText: true),
-            TextField(controller: newCtrl, decoration: const InputDecoration(labelText: 'Nueva'), obscureText: true),
+            TextField(
+              controller: currentCtrl,
+              decoration: const InputDecoration(labelText: 'Actual'),
+              obscureText: true,
+            ),
+            TextField(
+              controller: newCtrl,
+              decoration: const InputDecoration(labelText: 'Nueva'),
+              obscureText: true,
+            ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
           ElevatedButton(
             onPressed: () async {
               final token = await ref.read(authServiceProvider).getToken();
               if (token == null) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sin token')));
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('Sin token')));
                 return;
               }
               if (newCtrl.text.trim().length < 8) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('La nueva contraseña debe tener mínimo 8 caracteres')));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'La nueva contraseña debe tener mínimo 8 caracteres',
+                    ),
+                  ),
+                );
                 return;
               }
               final user = ref.read(authProvider).user;
               if (user == null) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Usuario no disponible')));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Usuario no disponible')),
+                );
                 return;
               }
-              final res = await ref.read(profileServiceProvider).changePasswordWithCurrent(
-                token: token,
-                userEmail: user.email,
-                currentPassword: currentCtrl.text.trim(),
-                userId: user.id,
-                newPassword: newCtrl.text.trim(),
-              );
+              final res = await ref
+                  .read(profileServiceProvider)
+                  .changePasswordWithCurrent(
+                    token: token,
+                    userEmail: user.email,
+                    currentPassword: currentCtrl.text.trim(),
+                    userId: user.id,
+                    newPassword: newCtrl.text.trim(),
+                  );
               if (res['success'] == true) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Contraseña cambiada')));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Contraseña cambiada')),
+                );
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${res['message']}')));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Error: ${res['message']}')),
+                );
               }
               if (ctx.mounted) Navigator.pop(ctx);
             },
@@ -422,9 +544,14 @@ class UserProfileScreen extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Cambiar foto de perfil'),
-        content: const Text('Funcionalidad pendiente: seleccionar imagen y subir al servidor.'),
+        content: const Text(
+          'Funcionalidad pendiente: seleccionar imagen y subir al servidor.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cerrar')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cerrar'),
+          ),
         ],
       ),
     );
@@ -433,23 +560,32 @@ class UserProfileScreen extends ConsumerWidget {
   Future<void> _makeOwner(BuildContext context, WidgetRef ref) async {
     final user = ref.read(authProvider).user;
     if (user?.personaId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Persona no asociada')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Persona no asociada')));
       return;
     }
     final token = await ref.read(authServiceProvider).getToken();
     if (token == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sin token')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Sin token')));
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Creando perfil de dueño...')));
-    final res = await ref.read(profileServiceProvider).makeOwner(
-      personaId: user!.personaId!,
-      token: token,
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Creando perfil de dueño...')));
+    final res = await ref
+        .read(profileServiceProvider)
+        .makeOwner(personaId: user!.personaId!, token: token);
     if (res['success'] == true) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Solicitud de dueño registrada')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Solicitud de dueño registrada')),
+      );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${res['message']}')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: ${res['message']}')));
     }
   }
 }

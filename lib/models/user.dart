@@ -13,7 +13,13 @@ class User {
     this.avatarUrl,
   });
 
-  User copyWith({String? id, String? personaId, String? username, String? email, String? avatarUrl}) {
+  User copyWith({
+    String? id,
+    String? personaId,
+    String? username,
+    String? email,
+    String? avatarUrl,
+  }) {
     return User(
       id: id ?? this.id,
       personaId: personaId ?? this.personaId,
@@ -44,5 +50,6 @@ class User {
   }
 
   @override
-  String toString() => 'User(id: $id, personaId: $personaId, username: $username, email: $email)';
+  String toString() =>
+      'User(id: $id, personaId: $personaId, username: $username, email: $email)';
 }

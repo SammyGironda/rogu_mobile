@@ -38,7 +38,9 @@ class _DenunciaScreenState extends State<DenunciaScreen> {
     // Use filled data to show confirmation; in a real app send to backend
     final msg = 'Denuncia enviada para ${_courtName ?? 'la cancha'}';
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-    debugPrint('Denuncia: bookingId=$_bookingId court=$_courtName reporter=$_reporterName reason=$_reason details=$_details');
+    debugPrint(
+      'Denuncia: bookingId=$_bookingId court=$_courtName reporter=$_reporterName reason=$_reason details=$_details',
+    );
     Navigator.pop(context);
   }
 
@@ -48,12 +50,19 @@ class _DenunciaScreenState extends State<DenunciaScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Denunciar Cancha'),
-        leading: Builder(builder: (ctx) {
-          final theme = Theme.of(context);
-          final bool isDark = theme.brightness == Brightness.dark;
-          final Color iconColor = isDark ? Colors.white : AppColors.neutral700;
-          return IconButton(icon: Icon(Icons.menu, color: iconColor), onPressed: () => Scaffold.of(ctx).openDrawer());
-        }),
+        leading: Builder(
+          builder: (ctx) {
+            final theme = Theme.of(context);
+            final bool isDark = theme.brightness == Brightness.dark;
+            final Color iconColor = isDark
+                ? Colors.white
+                : AppColors.neutral700;
+            return IconButton(
+              icon: Icon(Icons.menu, color: iconColor),
+              onPressed: () => Scaffold.of(ctx).openDrawer(),
+            );
+          },
+        ),
       ),
       drawer: const AppDrawer(),
       bottomNavigationBar: const BottomNavBar(),
@@ -70,27 +79,43 @@ class _DenunciaScreenState extends State<DenunciaScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text('Denuncia para: ${_courtName ?? '—'}', style: theme.textTheme.titleLarge),
+                      Text(
+                        'Denuncia para: ${_courtName ?? '—'}',
+                        style: theme.textTheme.titleLarge,
+                      ),
                       const SizedBox(height: 12),
                       TextFormField(
-                        decoration: const InputDecoration(labelText: 'Tu nombre'),
-                        validator: (v) => (v == null || v.isEmpty) ? 'Ingresa tu nombre' : null,
+                        decoration: const InputDecoration(
+                          labelText: 'Tu nombre',
+                        ),
+                        validator: (v) => (v == null || v.isEmpty)
+                            ? 'Ingresa tu nombre'
+                            : null,
                         onSaved: (v) => _reporterName = v ?? '',
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
-                        decoration: const InputDecoration(labelText: 'Motivo (breve)'),
-                        validator: (v) => (v == null || v.isEmpty) ? 'Ingresa un motivo' : null,
+                        decoration: const InputDecoration(
+                          labelText: 'Motivo (breve)',
+                        ),
+                        validator: (v) => (v == null || v.isEmpty)
+                            ? 'Ingresa un motivo'
+                            : null,
                         onSaved: (v) => _reason = v ?? '',
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
-                        decoration: const InputDecoration(labelText: 'Detalles (opcional)'),
+                        decoration: const InputDecoration(
+                          labelText: 'Detalles (opcional)',
+                        ),
                         maxLines: 4,
                         onSaved: (v) => _details = v ?? '',
                       ),
                       const SizedBox(height: 16),
-                      ElevatedButton(onPressed: _submit, child: const Text('Enviar Denuncia')),
+                      ElevatedButton(
+                        onPressed: _submit,
+                        child: const Text('Enviar Denuncia'),
+                      ),
                     ],
                   ),
                 ),

@@ -18,7 +18,6 @@ class SplashScreen extends ConsumerStatefulWidget {
 }
 
 class _SplashScreenState extends ConsumerState<SplashScreen> {
-
   @override
   void initState() {
     super.initState();
@@ -42,14 +41,14 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     // Also check current state in case it's already loaded (e.g. hot reload)
     final authState = ref.watch(authProvider);
     if (!authState.isLoading) {
-       // We use a microtask to avoid navigation during build
-       Future.microtask(() {
-         if (authState.isAuthenticated) {
-            Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
-         } else {
-            Navigator.pushReplacementNamed(context, LoginScreen.routeName);
-         }
-       });
+      // We use a microtask to avoid navigation during build
+      Future.microtask(() {
+        if (authState.isAuthenticated) {
+          Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
+        } else {
+          Navigator.pushReplacementNamed(context, LoginScreen.routeName);
+        }
+      });
     }
 
     final theme = Theme.of(context);
@@ -61,9 +60,20 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               // App title / logo placeholder
-              Text('ROGU', style: theme.textTheme.headlineSmall?.copyWith(color: AppColors.primary600, fontSize: 32)),
+              Text(
+                'ROGU',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  color: AppColors.primary600,
+                  fontSize: 32,
+                ),
+              ),
               const SizedBox(height: 8),
-              Text('Gestión y reservas', style: theme.textTheme.bodyMedium?.copyWith(color: AppColors.neutral600)),
+              Text(
+                'Gestión y reservas',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: AppColors.neutral600,
+                ),
+              ),
               const SizedBox(height: 24),
               const CircularProgressIndicator(),
             ],
@@ -73,4 +83,3 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     );
   }
 }
-

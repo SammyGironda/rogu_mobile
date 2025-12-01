@@ -22,11 +22,18 @@ class CourtsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Canchas'),
-        leading: Builder(builder: (ctx) {
-          final bool isDark = theme.brightness == Brightness.dark;
-          final Color iconColor = isDark ? Colors.white : AppColors.neutral700;
-          return IconButton(icon: Icon(Icons.menu, color: iconColor), onPressed: () => Scaffold.of(ctx).openDrawer());
-        }),
+        leading: Builder(
+          builder: (ctx) {
+            final bool isDark = theme.brightness == Brightness.dark;
+            final Color iconColor = isDark
+                ? Colors.white
+                : AppColors.neutral700;
+            return IconButton(
+              icon: Icon(Icons.menu, color: iconColor),
+              onPressed: () => Scaffold.of(ctx).openDrawer(),
+            );
+          },
+        ),
       ),
       drawer: const AppDrawer(),
       bottomNavigationBar: const BottomNavBar(),
@@ -37,7 +44,13 @@ class CourtsScreen extends StatelessWidget {
           final c = courts[i];
           return Card(
             child: ListTile(
-              leading: CircleAvatar(backgroundColor: AppColors.primary500, child: Text(c['name']![0], style: const TextStyle(color: Colors.white))),
+              leading: CircleAvatar(
+                backgroundColor: AppColors.primary500,
+                child: Text(
+                  c['name']![0],
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
               title: Text(c['name']!),
               subtitle: Text(c['location']!),
               trailing: Icon(Icons.chevron_right),
@@ -47,8 +60,15 @@ class CourtsScreen extends StatelessWidget {
                   context: context,
                   builder: (ctx) => AlertDialog(
                     title: Text(c['name']!),
-                    content: Text('Ubicación: ${c['location']}\nDescripción breve de la cancha.'),
-                    actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cerrar'))],
+                    content: Text(
+                      'Ubicación: ${c['location']}\nDescripción breve de la cancha.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('Cerrar'),
+                      ),
+                    ],
                   ),
                 );
               },

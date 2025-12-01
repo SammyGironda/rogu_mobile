@@ -37,10 +37,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _errorMessage = null;
     });
 
-    final success = await ref.read(authProvider.notifier).login(
-      _emailController.text.trim(),
-      _passwordController.text,
-    );
+    final success = await ref
+        .read(authProvider.notifier)
+        .login(_emailController.text.trim(), _passwordController.text);
 
     if (mounted) {
       final error = ref.read(authProvider).error;
@@ -54,9 +53,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         Navigator.of(context).pushReplacementNamed(DashboardScreen.routeName);
       } else {
         if (_errorMessage != null && _errorMessage!.isNotEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(_errorMessage!)),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(_errorMessage!)));
         }
       }
     }
@@ -65,6 +64,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        leading: Builder(
+          builder: (ctx) {
+            final isDark = Theme.of(ctx).brightness == Brightness.dark;
+            final iconColor = isDark ? Colors.white : Colors.black87;
+            return IconButton(
+              icon: Icon(Icons.arrow_back, color: iconColor),
+              onPressed: () {
+                if (Navigator.of(ctx).canPop()) {
+                  Navigator.of(ctx).pop();
+                } else {
+                  Navigator.of(ctx)
+                      .pushReplacementNamed(DashboardScreen.routeName);
+                }
+              },
+            );
+          },
+        ),
+        title: const Text('Iniciar sesión'),
+      ),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -84,22 +103,39 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
-                            colors: [Color(0xFF3B82F6), Color(0xFF06B6D4), Color(0xFF8B5CF6)],
+                            colors: [
+                              Color(0xFF3B82F6),
+                              Color(0xFF06B6D4),
+                              Color(0xFF8B5CF6),
+                            ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Image.asset('lib/assets/rogu_logo.png', width: 28, height: 28),
+                        child: Image.asset(
+                          'lib/assets/rogu_logo.png',
+                          width: 28,
+                          height: 28,
+                        ),
                       ),
                       const SizedBox(width: 10),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: const [
-                          Text('ROGÜ', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
-                          Text('Reserva tu cancha favorita', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                          Text(
+                            'ROGÜ',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          Text(
+                            'Reserva tu cancha favorita',
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
                         ],
-                      )
+                      ),
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -156,7 +192,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ? const SizedBox(
                             height: 20,
                             width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
                           )
                         : const Text('Iniciar Sesión'),
                     expand: true,
@@ -179,7 +218,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       TextButton(
                         onPressed: () {
                           Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                            MaterialPageRoute(
+                              builder: (_) => const RegisterScreen(),
+                            ),
                           );
                         },
                         child: const Text('Regístrate'),

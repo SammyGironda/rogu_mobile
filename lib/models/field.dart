@@ -24,7 +24,13 @@ class Field {
       nombre: json['nombre'] ?? 'Cancha',
       descripcion: json['descripcion']?.toString(),
       precio: _toDouble(json['precio']),
-      fotos: fotosRaw.map((e) => (e is Map ? (e['urlFoto'] ?? e['url'] ?? '') : e.toString())).where((e) => e.toString().isNotEmpty).cast<String>().toList(),
+      fotos: fotosRaw
+          .map(
+            (e) => (e is Map ? (e['urlFoto'] ?? e['url'] ?? '') : e.toString()),
+          )
+          .where((e) => e.toString().isNotEmpty)
+          .cast<String>()
+          .toList(),
       deporte: json['deporte']?.toString(),
       iluminacion: json['iluminacion'] is bool ? json['iluminacion'] : null,
     );

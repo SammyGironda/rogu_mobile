@@ -44,27 +44,24 @@ class AppColors {
 
 class AppTheme {
   // Primary swatch to allow uses that expect MaterialColor (if needed)
-  static final MaterialColor primarySwatch = MaterialColor(
-    AppColors.primary500.toARGB32(),
-    const <int, Color>{
-      50: AppColors.primary50,
-      100: AppColors.primary100,
-      200: AppColors.primary200,
-      300: AppColors.primary300,
-      400: AppColors.primary400,
-      500: AppColors.primary500,
-      600: AppColors.primary600,
-      700: AppColors.primary700,
-      800: AppColors.primary800,
-      900: AppColors.primary900,
-    },
-  );
+  static final MaterialColor primarySwatch =
+      MaterialColor(AppColors.primary500.toARGB32(), const <int, Color>{
+        50: AppColors.primary50,
+        100: AppColors.primary100,
+        200: AppColors.primary200,
+        300: AppColors.primary300,
+        400: AppColors.primary400,
+        500: AppColors.primary500,
+        600: AppColors.primary600,
+        700: AppColors.primary700,
+        800: AppColors.primary800,
+        900: AppColors.primary900,
+      });
 
   // Font family stack (uses Plus Jakarta Sans first; fallback to system fonts)
   static const String primaryFont = 'Plus Jakarta Sans';
 
-  static final TextTheme _textTheme = Typography.material2021()
-      .black
+  static final TextTheme _textTheme = Typography.material2021().black
       .apply(fontFamily: primaryFont)
       .copyWith(
         headlineSmall: const TextStyle(fontWeight: FontWeight.w700),
@@ -121,10 +118,15 @@ class AppTheme {
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: AppColors.neutral100,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide.none,
+      ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
     ),
-  dialogTheme: DialogThemeData(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+    dialogTheme: DialogThemeData(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ),
     visualDensity: VisualDensity.adaptivePlatformDensity,
     textTheme: _textTheme,
     iconTheme: const IconThemeData(color: AppColors.neutral700),
@@ -171,7 +173,10 @@ class AppTheme {
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: AppColors.neutral800,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide.none,
+      ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
     ),
     visualDensity: VisualDensity.adaptivePlatformDensity,
@@ -179,7 +184,9 @@ class AppTheme {
     iconTheme: const IconThemeData(color: AppColors.neutral50),
     snackBarTheme: SnackBarThemeData(
       backgroundColor: AppColors.neutral700,
-      contentTextStyle: Typography.material2021().white.bodyMedium?.copyWith(color: Colors.white),
+      contentTextStyle: Typography.material2021().white.bodyMedium?.copyWith(
+        color: Colors.white,
+      ),
     ),
   );
 }

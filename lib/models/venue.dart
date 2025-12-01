@@ -20,7 +20,11 @@ class Venue {
   });
 
   factory Venue.fromJson(Map<String, dynamic> json) {
-    final deportes = (json['estadisticas']?['deportesDisponibles'] as List?)?.map((e) => e.toString()).toList() ?? <String>[];
+    final deportes =
+        (json['estadisticas']?['deportesDisponibles'] as List?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        <String>[];
     final rawFields = json['canchas'] as List? ?? [];
     return Venue(
       id: json['idSede'] ?? json['id'] ?? 0,
@@ -29,7 +33,9 @@ class Venue {
       direccion: json['direccion']?.toString(),
       fotoPrincipal: json['fotoPrincipal']?.toString(),
       deportesDisponibles: deportes,
-      canchas: rawFields.map((e) => Field.fromJson(e as Map<String, dynamic>)).toList(),
+      canchas: rawFields
+          .map((e) => Field.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 }

@@ -30,8 +30,13 @@ class Persona {
   factory Persona.fromMap(Map<String, dynamic> map) {
     DateTime? parseDate(dynamic v) {
       if (v == null) return null;
-      try { return DateTime.parse(v.toString()); } catch (_) { return null; }
+      try {
+        return DateTime.parse(v.toString());
+      } catch (_) {
+        return null;
+      }
     }
+
     return Persona(
       idPersona: (map['idPersona'] ?? map['id']).toString(),
       nombres: map['nombres']?.toString() ?? '',
@@ -40,7 +45,8 @@ class Persona {
       documentoTipo: map['documentoTipo']?.toString(),
       documentoNumero: map['documentoNumero']?.toString(),
       telefono: map['telefono']?.toString(),
-      telefonoVerificado: (map['telefonoVerificado'] == true || map['telefonoVerificado'] == 1),
+      telefonoVerificado:
+          (map['telefonoVerificado'] == true || map['telefonoVerificado'] == 1),
       fechaNacimiento: parseDate(map['fechaNacimiento']),
       genero: map['genero']?.toString(),
       urlFoto: map['urlFoto']?.toString(),

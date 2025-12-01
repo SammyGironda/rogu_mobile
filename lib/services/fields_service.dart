@@ -25,22 +25,32 @@ class FieldsService {
         ciudad: map['ciudad']?.toString(),
         direccion: map['direccion']?.toString(),
         fotoPrincipal: map['fotoPrincipal']?.toString(),
-        deportesDisponibles: (map['estadisticas']?['deportesDisponibles'] as List?)?.map((d) => d.toString()).toList() ?? <String>[],
+        deportesDisponibles:
+            (map['estadisticas']?['deportesDisponibles'] as List?)
+                ?.map((d) => d.toString())
+                .toList() ??
+            <String>[],
         canchas: const [],
       );
     }).toList();
   }
 
   Future<List<Field>> fetchVenueFields(int idSede, {String? deporte}) async {
-    final qs = deporte != null && deporte.isNotEmpty ? '?deporte=${Uri.encodeQueryComponent(deporte)}' : '';
+    final qs = deporte != null && deporte.isNotEmpty
+        ? '?deporte=${Uri.encodeQueryComponent(deporte)}'
+        : '';
     final uri = Uri.parse('$baseUrl/sede/$idSede/canchas$qs');
     final res = await http.get(uri);
     if (res.statusCode != 200) {
       throw Exception('Error ${res.statusCode} al obtener canchas');
     }
     final data = jsonDecode(res.body);
-    final raw = (data is Map && data['canchas'] is List) ? data['canchas'] as List : (data is List ? data : []);
-    return raw.map<Field>((e) => Field.fromJson(e as Map<String, dynamic>)).toList();
+    final raw = (data is Map && data['canchas'] is List)
+        ? data['canchas'] as List
+        : (data is List ? data : []);
+    return raw
+        .map<Field>((e) => Field.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<List<Field>> fetchAllFields() async {
@@ -51,12 +61,16 @@ class FieldsService {
     }
     final data = jsonDecode(res.body);
     final raw = (data is List) ? data : [];
-    return raw.map<Field>((e) => Field.fromJson(e as Map<String, dynamic>)).toList();
+    return raw
+        .map<Field>((e) => Field.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<List<Map<String, dynamic>>> searchDisciplines(String query) async {
     if (query.trim().isEmpty) return [];
-    final uri = Uri.parse('$baseUrl/disciplina/search?q=${Uri.encodeQueryComponent(query)}');
+    final uri = Uri.parse(
+      '$baseUrl/disciplina/search?q=${Uri.encodeQueryComponent(query)}',
+    );
     final res = await http.get(uri);
     if (res.statusCode != 200) return [];
     final data = jsonDecode(res.body);

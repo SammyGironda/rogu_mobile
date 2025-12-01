@@ -96,14 +96,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     if (result['success'] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Registro exitoso, ahora puedes iniciar sesión')),
+        const SnackBar(
+          content: Text('Registro exitoso, ahora puedes iniciar sesión'),
+        ),
       );
       Navigator.pop(context); // Volver al login
     } else {
       final msg = result['message']?.toString() ?? 'Error al registrarse';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg)),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     }
   }
 
@@ -129,26 +129,46 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
-                            colors: [Color(0xFF3B82F6), Color(0xFF06B6D4), Color(0xFF8B5CF6)],
+                            colors: [
+                              Color(0xFF3B82F6),
+                              Color(0xFF06B6D4),
+                              Color(0xFF8B5CF6),
+                            ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Image.asset('lib/assets/rogu_logo.png', width: 28, height: 28),
+                        child: Image.asset(
+                          'lib/assets/rogu_logo.png',
+                          width: 28,
+                          height: 28,
+                        ),
                       ),
                       const SizedBox(width: 10),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: const [
-                          Text('ROGÜ', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
-                          Text('Crea tu cuenta para reservar', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                          Text(
+                            'ROGÜ',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          Text(
+                            'Crea tu cuenta para reservar',
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
                         ],
-                      )
+                      ),
                     ],
                   ),
                   const SizedBox(height: 16),
-                  const Text('Datos personales', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  const Text(
+                    'Datos personales',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _nombresCtrl,
@@ -156,7 +176,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       labelText: 'Nombres',
                       border: OutlineInputBorder(),
                     ),
-                    validator: (v) => v == null || v.isEmpty ? 'Requerido' : null,
+                    validator: (v) =>
+                        v == null || v.isEmpty ? 'Requerido' : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
@@ -165,7 +186,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       labelText: 'Apellido paterno',
                       border: OutlineInputBorder(),
                     ),
-                    validator: (v) => v == null || v.isEmpty ? 'Requerido' : null,
+                    validator: (v) =>
+                        v == null || v.isEmpty ? 'Requerido' : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
@@ -174,7 +196,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       labelText: 'Apellido materno',
                       border: OutlineInputBorder(),
                     ),
-                    validator: (v) => v == null || v.isEmpty ? 'Requerido' : null,
+                    validator: (v) =>
+                        v == null || v.isEmpty ? 'Requerido' : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
@@ -184,7 +207,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       border: OutlineInputBorder(),
                     ),
                     keyboardType: TextInputType.phone,
-                    validator: (v) => v == null || v.isEmpty ? 'Requerido' : null,
+                    validator: (v) =>
+                        v == null || v.isEmpty ? 'Requerido' : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
@@ -197,7 +221,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     validator: (v) {
                       if (v == null || v.isEmpty) return 'Requerido';
                       if (v.length < 5) return 'CI inválido';
-                      if (int.tryParse(v) == null) return 'CI debe ser numérico';
+                      if (int.tryParse(v) == null)
+                        return 'CI debe ser numérico';
                       return null;
                     },
                   ),
@@ -215,7 +240,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                 final now = DateTime.now();
                                 final picked = await showDatePicker(
                                   context: context,
-                                  initialDate: DateTime(now.year - 18, now.month, now.day),
+                                  initialDate: DateTime(
+                                    now.year - 18,
+                                    now.month,
+                                    now.day,
+                                  ),
                                   firstDate: DateTime(1900),
                                   lastDate: now,
                                 );
@@ -228,7 +257,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                               child: Text(
                                 _fechaNacimiento == null
                                     ? 'Seleccionar fecha'
-                                    : _fechaNacimiento!.toIso8601String().split('T').first,
+                                    : _fechaNacimiento!
+                                          .toIso8601String()
+                                          .split('T')
+                                          .first,
                               ),
                             ),
                           ],
@@ -243,9 +275,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             border: OutlineInputBorder(),
                           ),
                           items: const [
-                            DropdownMenuItem(value: 'MASCULINO', child: Text('Masculino')),
-                            DropdownMenuItem(value: 'FEMENINO', child: Text('Femenino')),
-                            DropdownMenuItem(value: 'OTRO', child: Text('Otro')),
+                            DropdownMenuItem(
+                              value: 'MASCULINO',
+                              child: Text('Masculino'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'FEMENINO',
+                              child: Text('Femenino'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'OTRO',
+                              child: Text('Otro'),
+                            ),
                           ],
                           onChanged: (val) {
                             if (val != null) {
@@ -260,7 +301,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   ),
 
                   const SizedBox(height: 24),
-                  const Text('Datos de cuenta', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  const Text(
+                    'Datos de cuenta',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _usuarioCtrl,
@@ -268,7 +312,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       labelText: 'Nombre de usuario',
                       border: OutlineInputBorder(),
                     ),
-                    validator: (v) => v == null || v.isEmpty ? 'Requerido' : null,
+                    validator: (v) =>
+                        v == null || v.isEmpty ? 'Requerido' : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
@@ -309,7 +354,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     validator: (v) {
                       if (v == null || v.isEmpty) return 'Requerido';
                       if (v.length < 8) return 'Mínimo 8 caracteres';
-                      if (v != _contrasenaCtrl.text) return 'Las contraseñas deben coincidir';
+                      if (v != _contrasenaCtrl.text)
+                        return 'Las contraseñas deben coincidir';
                       return null;
                     },
                   ),
@@ -321,7 +367,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         ? const SizedBox(
                             height: 20,
                             width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
                           )
                         : const Text('Registrarse'),
                     expand: true,

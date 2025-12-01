@@ -1,21 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../theme/theme.dart';
-import '../widgets/bottom_nav.dart';
 import '../widgets/app_drawer.dart';
+import '../widgets/bottom_nav.dart';
 import '../services/gestion_service.dart';
-import '../services/auth_service.dart';
-import '../services/profile_service.dart';
-import 'package:url_launcher/url_launcher.dart';
+import '../state/providers.dart';
+import 'login_screen.dart';
+import 'new_reservation_screen.dart';
+import 'dashboard_screen.dart';
 
-// =============================================================
-//  NUEVA PANTALLA "GESTIONAR" (adaptación completa de sedes React)
-//  - Copia toda la funcionalidad estructural (crear sede, gestionar canchas)
-//  - Sin lógica de backend (estado local), lista para integrar luego
-//  - Inversión de colores: fondos claros -> oscuros; textos oscuros -> claros
-// =============================================================
-
-// ------------------ MODELOS ------------------
+// Modelos locales (idénticos a los usados en new_reservation_screen)
 class SedeMng {
   final String id;
   final String nombre;
@@ -41,31 +36,6 @@ class SedeMng {
     required this.nit,
     required this.licenciaFuncionamiento,
   });
-  SedeMng copyWith({
-    String? nombre,
-    String? descripcion,
-    String? direccion,
-    String? latitud,
-    String? longitud,
-    String? telefono,
-    String? email,
-    String? politicas,
-    String? nit,
-    String? licenciaFuncionamiento,
-  }) => SedeMng(
-    id: id,
-    nombre: nombre ?? this.nombre,
-    descripcion: descripcion ?? this.descripcion,
-    direccion: direccion ?? this.direccion,
-    latitud: latitud ?? this.latitud,
-    longitud: longitud ?? this.longitud,
-    telefono: telefono ?? this.telefono,
-    email: email ?? this.email,
-    politicas: politicas ?? this.politicas,
-    nit: nit ?? this.nit,
-    licenciaFuncionamiento:
-        licenciaFuncionamiento ?? this.licenciaFuncionamiento,
-  );
 }
 
 class ParteAdicionalMng {
@@ -93,7 +63,7 @@ class CanchaMng {
   final String dimensiones;
   final String reglasUso;
   final List<String> fotos;
-  final List<String> disciplinas; // guarda ids de disciplinas
+  final List<String> disciplinas;
   final List<ParteAdicionalMng> partesAdicionales;
   CanchaMng({
     required this.id,
@@ -110,126 +80,104 @@ class CanchaMng {
     required this.disciplinas,
     required this.partesAdicionales,
   });
-  CanchaMng copyWith({
-    String? nombre,
-    String? superficie,
-    bool? cubierta,
-    bool? iluminacion,
-    bool? techada,
-    String? aforoMaximo,
-    String? dimensiones,
-    String? reglasUso,
-    List<String>? fotos,
-    List<String>? disciplinas,
-    List<ParteAdicionalMng>? partesAdicionales,
-  }) => CanchaMng(
-    id: id,
-    sedeId: sedeId,
-    nombre: nombre ?? this.nombre,
-    superficie: superficie ?? this.superficie,
-    cubierta: cubierta ?? this.cubierta,
-    iluminacion: iluminacion ?? this.iluminacion,
-    techada: techada ?? this.techada,
-    aforoMaximo: aforoMaximo ?? this.aforoMaximo,
-    dimensiones: dimensiones ?? this.dimensiones,
-    reglasUso: reglasUso ?? this.reglasUso,
-    fotos: fotos ?? this.fotos,
-    disciplinas: disciplinas ?? this.disciplinas,
-    partesAdicionales: partesAdicionales ?? this.partesAdicionales,
-  );
 }
 
-class DisciplinaMng {
-  final String id;
-  final String nombre;
-  final String categoria;
-  final String descripcion;
-  DisciplinaMng({
-    required this.id,
-    required this.nombre,
-    required this.categoria,
-    required this.descripcion,
-  });
-}
-
-final disciplinasDisponibles = <DisciplinaMng>[
-  DisciplinaMng(
-    id: '1',
-    nombre: 'Fútbol 11',
-    categoria: 'Fútbol',
-    descripcion: 'Fútbol tradicional con 11 jugadores por equipo',
-  ),
-  DisciplinaMng(
-    id: '2',
-    nombre: 'Fútbol 7',
-    categoria: 'Fútbol',
-    descripcion: 'Fútbol con 7 jugadores por equipo',
-  ),
-  DisciplinaMng(
-    id: '3',
-    nombre: 'Fútbol 5',
-    categoria: 'Fútbol',
-    descripcion: 'Fútbol sala con 5 jugadores por equipo',
-  ),
-  DisciplinaMng(
-    id: '4',
-    nombre: 'Baloncesto',
-    categoria: 'Baloncesto',
-    descripcion: 'Deporte de canasta con 5 jugadores por equipo',
-  ),
-  DisciplinaMng(
-    id: '5',
-    nombre: 'Voleibol',
-    categoria: 'Voleibol',
-    descripcion: 'Deporte de red con 6 jugadores por equipo',
-  ),
-  DisciplinaMng(
-    id: '6',
-    nombre: 'Tenis',
-    categoria: 'Tenis',
-    descripcion: 'Deporte individual o de parejas con raqueta',
-  ),
-  DisciplinaMng(
-    id: '7',
-    nombre: 'Pádel',
-    categoria: 'Pádel',
-    descripcion: 'Deporte de raqueta en pista cerrada',
-  ),
-  DisciplinaMng(
-    id: '8',
-    nombre: 'Atletismo',
-    categoria: 'Atletismo',
-    descripcion: 'Carreras y competencias atléticas',
-  ),
-];
-
-// ------------------ STATE PROVIDERS ------------------
-final _currentViewProvider = StateProvider<String>((_) => 'crear-sede');
+// Proveedores locales para el estado de esta pantalla
 final _sedeProvider = StateProvider<SedeMng?>((_) => null);
 final _canchasProvider = StateProvider<List<CanchaMng>>((_) => []);
 
-// ------------------ MAIN SCREEN ------------------
-class NewReservationScreen extends ConsumerWidget {
-  // mantiene nombre de ruta para bottom nav
-  static const routeName = '/new-reservation';
-  const NewReservationScreen({super.key});
+class GestionCanchasScreen extends ConsumerStatefulWidget {
+  static const String routeName = '/gestion-canchas';
+  final Map<String, dynamic> sedeArgs;
+  const GestionCanchasScreen({super.key, required this.sedeArgs});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final view = ref.watch(_currentViewProvider);
-    final sede = ref.watch(_sedeProvider);
+  ConsumerState<GestionCanchasScreen> createState() =>
+      _GestionCanchasScreenState();
+}
+
+class _GestionCanchasScreenState extends ConsumerState<GestionCanchasScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Inicializar estado de sede al entrar
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final auth = ref.read(authProvider);
+      if (!auth.isAuthenticated) {
+        Navigator.pushReplacementNamed(context, LoginScreen.routeName);
+        return;
+      }
+      // Validar roles y resolver sede real desde idPersona
+      final personaId = int.tryParse(auth.user?.personaId ?? '');
+      if (personaId == null) {
+        Navigator.pushReplacementNamed(context, NewReservationScreen.routeName);
+        return;
+      }
+      // Usa servicio unificado para validar Admin/Dueño y traer sede
+      gestionService.resolveGestionEntryForPersona(personaId).then((result) {
+        if (!mounted) return;
+        if (result['success'] != true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                result['message']?.toString() ?? 'Acceso restringido',
+              ),
+            ),
+          );
+          Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
+          return;
+        }
+        final isAdmin = result['isAdmin'] == true;
+        final isOwner = result['isOwner'] == true;
+        if (!(isAdmin || isOwner)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Acceso permitido sólo a dueños o administradores')),
+          );
+          Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
+          return;
+        }
+
+        final dynamic sedeObj = result['sede'];
+        if (sedeObj == null) {
+          // Sin sede: enviar a creación de sede
+          Navigator.pushReplacementNamed(context, NewReservationScreen.routeName);
+          return;
+        }
+        // Normalizar sede y setear provider local
+        final raw = sedeObj as Map<String, dynamic>;
+        final sede = SedeMng(
+          id: (raw['idSede'] ?? raw['id'] ?? raw['idsede'] ?? '')
+              .toString(),
+          nombre: raw['nombre']?.toString() ?? '',
+          descripcion: raw['descripcion']?.toString() ?? '',
+          direccion: (raw['direccion'] ?? raw['addressLine'] ?? '').toString(),
+          latitud: (raw['latitud'] ?? raw['latitude'] ?? '').toString(),
+          longitud: (raw['longitud'] ?? raw['longitude'] ?? '').toString(),
+          telefono: raw['telefono']?.toString() ?? '',
+          email: raw['email']?.toString() ?? '',
+          politicas: raw['politicas']?.toString() ?? '',
+          nit: (raw['NIT'] ?? raw['nit'] ?? '').toString(),
+          licenciaFuncionamiento:
+              (raw['LicenciaFuncionamiento'] ?? raw['licenciaFuncionamiento'] ?? '')
+                  .toString(),
+        );
+        ref.read(_sedeProvider.notifier).state = sede;
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final darkBg = const Color(0xFF121417);
     final darker = const Color(0xFF0D0F11);
     final lightText = const Color(0xFFF4F6F8);
-    final accent =
-        AppColors.primary500; // usado en acciones futuras (conservar)
 
     return Scaffold(
       appBar: AppBar(
         backgroundColor: darker,
         title: Text(
-          'Sistema de Gestión de Sedes Deportivas',
+          'Gestionar Canchas',
           style: theme.textTheme.titleMedium?.copyWith(color: lightText),
         ),
         leading: Builder(
@@ -238,21 +186,6 @@ class NewReservationScreen extends ConsumerWidget {
             onPressed: () => Scaffold.of(ctx).openDrawer(),
           ),
         ),
-        actions: [
-          if (sede != null && view == 'gestionar-canchas')
-            TextButton.icon(
-              onPressed: () {
-                ref.read(_currentViewProvider.notifier).state = 'crear-sede';
-                ref.read(_sedeProvider.notifier).state = null;
-                ref.read(_canchasProvider.notifier).state = [];
-              },
-              icon: const Icon(Icons.arrow_back, color: Colors.white),
-              label: const Text(
-                'Volver a Crear Sede',
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-        ],
       ),
       drawer: const AppDrawer(),
       bottomNavigationBar: const BottomNavBar(),
@@ -267,21 +200,7 @@ class NewReservationScreen extends ConsumerWidget {
         child: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 900),
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                child: (view == 'crear-sede' && sede == null)
-                    ? _SedeForm(
-                        onCreated: (s) {
-                          ref.read(_sedeProvider.notifier).state = s;
-                          ref.read(_currentViewProvider.notifier).state =
-                              'gestionar-canchas';
-                        },
-                      )
-                    : _CanchasManager(),
-              ),
-            ),
+            child: const _CanchasManager(),
           ),
         ),
       ),
@@ -289,538 +208,8 @@ class NewReservationScreen extends ConsumerWidget {
   }
 }
 
-// ------------------ WIDGET: SEDE FORM ------------------
-class _SedeForm extends StatefulWidget {
-  final void Function(SedeMng sede) onCreated;
-  const _SedeForm({required this.onCreated});
-  @override
-  State<_SedeForm> createState() => _SedeFormState();
-}
-
-class _SedeFormState extends State<_SedeForm> {
-  final _formKey = GlobalKey<FormState>();
-  final _nombre = TextEditingController();
-  final _descripcion = TextEditingController();
-  final _direccion = TextEditingController();
-  final _latitud = TextEditingController();
-  final _longitud = TextEditingController();
-  final _telefono = TextEditingController();
-  final _email = TextEditingController();
-  final _politicas = TextEditingController();
-  final _nit = TextEditingController();
-  final _licencia = TextEditingController();
-
-  bool _submitting = false;
-  String? _errorMsg;
-  final _auth = AuthService();
-
-  Future<void> _submit() async {
-    if (_submitting) return;
-    if (_formKey.currentState?.validate() != true) return;
-    setState(() {
-      _submitting = true;
-      _errorMsg = null;
-    });
-    try {
-      final user = await _auth.getUser();
-      if (user == null || user.personaId == null) {
-        setState(() {
-          _errorMsg = 'Usuario sin persona asociada.';
-          _submitting = false;
-        });
-        return;
-      }
-      final personaId = int.tryParse(user.personaId!) ?? 0;
-      if (personaId == 0) {
-        setState(() {
-          _errorMsg = 'ID de persona inválido.';
-          _submitting = false;
-        });
-        return;
-      }
-      final resp = await gestionService.createSede(
-        idPersonaD: personaId,
-        nombre: _nombre.text.trim(),
-        descripcion: _descripcion.text.trim(),
-        direccion: _direccion.text.trim(),
-        latitud: _latitud.text.trim().isNotEmpty ? _latitud.text.trim() : null,
-        longitud: _longitud.text.trim().isNotEmpty
-            ? _longitud.text.trim()
-            : null,
-        telefono: _telefono.text.trim(),
-        email: _email.text.trim(),
-        politicas: _politicas.text.trim(),
-        nit: _nit.text.trim(),
-        licenciaFuncionamiento: _licencia.text.trim(),
-      );
-      if (resp['success'] == true) {
-        final data = resp['data'] as Map<String, dynamic>? ?? {};
-        final idBackend = data['idSede'] ?? data['id'] ?? data['id_sede'];
-        final sedeArgs = <String, dynamic>{
-          'id':
-              idBackend?.toString() ??
-              DateTime.now().millisecondsSinceEpoch.toString(),
-          'nombre': _nombre.text.trim(),
-          'descripcion': _descripcion.text.trim(),
-          'direccion': _direccion.text.trim(),
-          'latitud': _latitud.text.trim(),
-          'longitud': _longitud.text.trim(),
-          'telefono': _telefono.text.trim(),
-          'email': _email.text.trim(),
-          'politicas': _politicas.text.trim(),
-          'nit': _nit.text.trim(),
-          'licenciaFuncionamiento': _licencia.text.trim(),
-        };
-        if (!mounted) return;
-        Navigator.of(
-          context,
-        ).pushNamed('/gestion-canchas', arguments: sedeArgs);
-      } else {
-        setState(() {
-          _errorMsg = resp['message']?.toString() ?? 'Error desconocido';
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _errorMsg = 'Error: $e';
-      });
-    } finally {
-      if (mounted)
-        setState(() {
-          _submitting = false;
-        });
-    }
-  }
-
-  @override
-  void dispose() {
-    _nombre.dispose();
-    _descripcion.dispose();
-    _direccion.dispose();
-    _latitud.dispose();
-    _longitud.dispose();
-    _telefono.dispose();
-    _email.dispose();
-    _politicas.dispose();
-    _nit.dispose();
-    _licencia.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final light = const Color(0xFFF4F6F8);
-    final darkCard = const Color(0xFF1C1F26);
-    final accent = AppColors.primary500;
-    final labelStyle = TextStyle(color: light.withOpacity(.85), fontSize: 13);
-    InputDecoration deco(String label, {String? hint}) => InputDecoration(
-      labelText: label,
-      hintText: hint,
-      labelStyle: labelStyle,
-      hintStyle: TextStyle(color: light.withOpacity(.4)),
-      filled: true,
-      fillColor: const Color(0xFF252A33),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: const Color(0xFF3A414D)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: accent),
-      ),
-    );
-
-    double? lat = double.tryParse(_latitud.text.trim());
-    double? lng = double.tryParse(_longitud.text.trim());
-    final hasCoords = lat != null && lng != null;
-
-    return Form(
-      key: _formKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Column(
-              children: [
-                Text(
-                  'Crear Nueva Sede',
-                  style: TextStyle(
-                    color: light,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Complete la información de su sede deportiva',
-                  style: TextStyle(color: light.withOpacity(.7)),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-          LayoutBuilder(
-            builder: (ctx, constraints) {
-              // Layout simplificado móvil/desktop (heurística futura)
-              return Column(
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        flex: 2,
-                        child: _Card(
-                          color: darkCard,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _SectionTitle(
-                                icon: Icons.domain,
-                                title: 'Información Básica',
-                              ),
-                              const SizedBox(height: 12),
-                              TextFormField(
-                                controller: _nombre,
-                                decoration: deco(
-                                  'Nombre de la Sede *',
-                                  hint: 'Ej: Centro Deportivo Los Andes',
-                                ),
-                                validator: (v) => v == null || v.trim().isEmpty
-                                    ? 'Requerido'
-                                    : null,
-                              ),
-                              const SizedBox(height: 12),
-                              TextFormField(
-                                controller: _descripcion,
-                                maxLines: 3,
-                                decoration: deco(
-                                  'Descripción',
-                                  hint: 'Describe tu sede deportiva...',
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              TextFormField(
-                                controller: _direccion,
-                                decoration: deco(
-                                  'Dirección *',
-                                  hint: 'Ej: Calle 123 # 45-67',
-                                ),
-                                validator: (v) => v == null || v.trim().isEmpty
-                                    ? 'Requerido'
-                                    : null,
-                              ),
-                              const SizedBox(height: 12),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: TextFormField(
-                                      controller: _latitud,
-                                      decoration: deco(
-                                        'Latitud',
-                                        hint: 'Ej: -16.500',
-                                      ),
-                                      keyboardType: TextInputType.number,
-                                      onChanged: (_) => setState(() {}),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: TextFormField(
-                                      controller: _longitud,
-                                      decoration: deco(
-                                        'Longitud',
-                                        hint: 'Ej: -68.150',
-                                      ),
-                                      keyboardType: TextInputType.number,
-                                      onChanged: (_) => setState(() {}),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              TextFormField(
-                                controller: _politicas,
-                                maxLines: 4,
-                                decoration: deco(
-                                  'Políticas de Uso',
-                                  hint: 'Normas y políticas...',
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          children: [
-                            _Card(
-                              color: darkCard,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _SectionTitle(
-                                    icon: Icons.call,
-                                    title: 'Información de Contacto',
-                                  ),
-                                  const SizedBox(height: 12),
-                                  TextFormField(
-                                    controller: _telefono,
-                                    decoration: deco(
-                                      'Teléfono *',
-                                      hint: '+591 7xx xxx',
-                                    ),
-                                    validator: (v) =>
-                                        v == null || v.trim().isEmpty
-                                        ? 'Requerido'
-                                        : null,
-                                  ),
-                                  const SizedBox(height: 12),
-                                  TextFormField(
-                                    controller: _email,
-                                    decoration: deco(
-                                      'Email *',
-                                      hint: 'contacto@sede.com',
-                                    ),
-                                    validator: (v) =>
-                                        v == null || !v.contains('@')
-                                        ? 'Email inválido'
-                                        : null,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            _Card(
-                              color: darkCard,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _SectionTitle(
-                                    icon: Icons.security,
-                                    title: 'Información Legal',
-                                  ),
-                                  const SizedBox(height: 12),
-                                  TextFormField(
-                                    controller: _nit,
-                                    decoration: deco(
-                                      'NIT *',
-                                      hint: 'Ej: 123456-7',
-                                    ),
-                                    validator: (v) =>
-                                        v == null || v.trim().isEmpty
-                                        ? 'Requerido'
-                                        : null,
-                                  ),
-                                  const SizedBox(height: 12),
-                                  TextFormField(
-                                    controller: _licencia,
-                                    decoration: deco(
-                                      'Licencia de Funcionamiento',
-                                      hint: 'Ej: LIC-2025-001',
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (hasCoords)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 16),
-                      child: _Card(
-                        color: darkCard,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _SectionTitle(
-                              icon: Icons.pin_drop,
-                              title: 'Vista Previa de Ubicación',
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Lat: ${lat.toStringAsFixed(6)}  Lng: ${lng.toStringAsFixed(6)}',
-                              style: TextStyle(color: light.withOpacity(.8)),
-                            ),
-                            const SizedBox(height: 12),
-                            Container(
-                              height: 220,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF252A33),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              alignment: Alignment.center,
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.place,
-                                    color: light.withOpacity(.7),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Ubicación preparada',
-                                    style: TextStyle(
-                                      color: light.withOpacity(.8),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  OutlinedButton.icon(
-                                    onPressed: () async {
-                                      final url = Uri.parse(
-                                        'geo:${lat.toStringAsFixed(6)},${lng.toStringAsFixed(6)}',
-                                      );
-                                      if (!await launchUrl(
-                                        url,
-                                        mode: LaunchMode.externalApplication,
-                                      )) {
-                                        final webUrl = Uri.parse(
-                                          'https://www.google.com/maps/search/?api=1&query=${lat.toStringAsFixed(6)},${lng.toStringAsFixed(6)}',
-                                        );
-                                        await launchUrl(
-                                          webUrl,
-                                          mode: LaunchMode.externalApplication,
-                                        );
-                                      }
-                                    },
-                                    icon: const Icon(Icons.map),
-                                    label: const Text('Ver en mapa'),
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: light,
-                                      side: BorderSide(
-                                        color: light.withOpacity(.3),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: 24),
-          if (_errorMsg != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Column(
-                children: [
-                  Center(
-                    child: Text(
-                      _errorMsg!,
-                      style: const TextStyle(color: Colors.redAccent),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  if (_errorMsg!.toLowerCase().contains('401') ||
-                      _errorMsg!.toLowerCase().contains('unauthorized'))
-                    Wrap(
-                      spacing: 8,
-                      alignment: WrapAlignment.center,
-                      children: [
-                        const Text(
-                          '¿Aún no eres dueño?',
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                        ElevatedButton(
-                          onPressed: _submitting
-                              ? null
-                              : () async {
-                                  setState(() {
-                                    _submitting = true;
-                                  });
-                                  try {
-                                    final user = await _auth.getUser();
-                                    final token = await _auth.getToken();
-                                    if (user == null ||
-                                        token == null ||
-                                        user.personaId == null) {
-                                      setState(() {
-                                        _errorMsg =
-                                            'Inicia sesión y crea tu persona primero.';
-                                      });
-                                    } else {
-                                      final resp = await ProfileService()
-                                          .makeOwner(
-                                            personaId: user.personaId!,
-                                            token: token,
-                                          );
-                                      if (resp['success'] == true) {
-                                        setState(() {
-                                          _errorMsg =
-                                              'Ahora eres dueño. Intenta nuevamente crear la sede.';
-                                        });
-                                      } else {
-                                        setState(() {
-                                          _errorMsg =
-                                              'No se pudo crear dueño: ${resp['message'] ?? ''}';
-                                        });
-                                      }
-                                    }
-                                  } catch (e) {
-                                    setState(() {
-                                      _errorMsg = 'Error: $e';
-                                    });
-                                  } finally {
-                                    setState(() {
-                                      _submitting = false;
-                                    });
-                                  }
-                                },
-                          child: const Text('Hacerme dueño'),
-                        ),
-                      ],
-                    ),
-                ],
-              ),
-            ),
-          Center(
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: accent,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 38,
-                  vertical: 16,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              onPressed: _submitting ? null : _submit,
-              icon: _submitting
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Icon(Icons.save, color: Colors.white),
-              label: Text(
-                _submitting ? 'Guardando...' : 'Guardar Sede y Continuar',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ------------------ WIDGET: CANCHAS MANAGER ------------------
 class _CanchasManager extends ConsumerStatefulWidget {
+  const _CanchasManager();
   @override
   ConsumerState<_CanchasManager> createState() => _CanchasManagerState();
 }
@@ -835,7 +224,6 @@ class _CanchasManagerState extends ConsumerState<_CanchasManager> {
   @override
   void initState() {
     super.initState();
-    // Intento de carga inicial si ya existe sede (navegación directa futura)
     WidgetsBinding.instance.addPostFrameCallback((_) => _tryFetch());
   }
 
@@ -862,7 +250,9 @@ class _CanchasManagerState extends ConsumerState<_CanchasManager> {
           cubierta: (m['cubierta'] is bool)
               ? m['cubierta']
               : (m['cubierta']?.toString() == 'true'),
-          iluminacion: (m['iluminacion']?.toString().toUpperCase() == 'SI'),
+          iluminacion:
+              (m['iluminacion']?.toString().toUpperCase() == 'SI') ||
+              (m['iluminacion']?.toString() == 'true'),
           techada: (m['techada'] is bool)
               ? m['techada']
               : (m['techada']?.toString() == 'true'),
@@ -875,7 +265,7 @@ class _CanchasManagerState extends ConsumerState<_CanchasManager> {
           disciplinas: (m['disciplinas'] is List)
               ? (m['disciplinas'] as List).map((x) => x.toString()).toList()
               : <String>[],
-          partesAdicionales: const [], // No soportado aún en backend
+          partesAdicionales: const [],
         );
       }).toList();
       ref.read(_canchasProvider.notifier).state = list;
@@ -905,7 +295,6 @@ class _CanchasManagerState extends ConsumerState<_CanchasManager> {
         cancha: editing,
         onCancel: () => setState(() => view = 'list'),
         onSave: (updatedBackend) async {
-          // Tras creación/edición exitosa, recargar lista desde backend.
           await _tryFetch();
           setState(() {
             view = 'list';
@@ -951,6 +340,7 @@ class _CanchasManagerState extends ConsumerState<_CanchasManager> {
         ),
         const SizedBox(height: 24),
         Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Expanded(
               child: Column(
@@ -1111,10 +501,12 @@ class _CanchasManagerState extends ConsumerState<_CanchasManager> {
                                 child: Image.network(
                                   c.fotos.first,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Center(
-                                    child: Icon(
-                                      Icons.image,
-                                      color: Colors.white.withOpacity(.4),
+                                  errorBuilder: (_, __, ___) => Container(
+                                    color: Colors.black26,
+                                    alignment: Alignment.center,
+                                    child: const Icon(
+                                      Icons.broken_image,
+                                      color: Colors.white54,
                                     ),
                                   ),
                                 ),
@@ -1237,7 +629,6 @@ class _CanchasManagerState extends ConsumerState<_CanchasManager> {
   }
 }
 
-// ------------------ CANCHA FORM ------------------
 class _CanchaForm extends StatefulWidget {
   final SedeMng sede;
   final CanchaMng? cancha;
@@ -1317,7 +708,7 @@ class _CanchaFormState extends State<_CanchaForm>
       fillColor: const Color(0xFF252A33),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: const Color(0xFF3A414D)),
+        borderSide: const BorderSide(color: Color(0xFF3A414D)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
@@ -1443,29 +834,7 @@ class _CanchaFormState extends State<_CanchaForm>
                         ],
                       ),
                       const SizedBox(height: 16),
-                      _SectionTitle(icon: Icons.tune, title: 'Características'),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 12,
-                        runSpacing: 12,
-                        children: [
-                          _ToggleChip(
-                            label: 'Cubierta',
-                            value: cubierta,
-                            onChanged: (v) => setState(() => cubierta = v),
-                          ),
-                          _ToggleChip(
-                            label: 'Iluminación',
-                            value: iluminacion,
-                            onChanged: (v) => setState(() => iluminacion = v),
-                          ),
-                          _ToggleChip(
-                            label: 'Techada',
-                            value: techada,
-                            onChanged: (v) => setState(() => techada = v),
-                          ),
-                        ],
-                      ),
+                      // Se removió la sección de "Características" (cubierta/iluminación/techada)
                       const SizedBox(height: 16),
                       TextField(
                         controller: _reglas,
@@ -1486,7 +855,7 @@ class _CanchaFormState extends State<_CanchaForm>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _SectionTitle(
+                      const _SectionTitle(
                         icon: Icons.photo_library,
                         title: 'Galería de Fotos',
                       ),
@@ -1520,7 +889,7 @@ class _CanchaFormState extends State<_CanchaForm>
                             borderRadius: BorderRadius.circular(12),
                           ),
                           alignment: Alignment.center,
-                          child: Text(
+                          child: const Text(
                             'No hay fotos agregadas aún',
                             style: TextStyle(color: Colors.white54),
                           ),
@@ -1565,8 +934,8 @@ class _CanchaFormState extends State<_CanchaForm>
                                         setState(() => fotos.removeAt(i)),
                                     child: Container(
                                       decoration: BoxDecoration(
-                                        color: Colors.redAccent,
-                                        borderRadius: BorderRadius.circular(16),
+                                        color: Colors.black54,
+                                        borderRadius: BorderRadius.circular(20),
                                       ),
                                       padding: const EdgeInsets.all(4),
                                       child: const Icon(
@@ -1591,7 +960,7 @@ class _CanchaFormState extends State<_CanchaForm>
                   color: darkCard,
                   child: Column(
                     children: [
-                      _SectionTitle(
+                      const _SectionTitle(
                         icon: Icons.emoji_events,
                         title: 'Disciplinas Deportivas',
                       ),
@@ -1620,9 +989,9 @@ class _CanchaFormState extends State<_CanchaForm>
                               crossAxisSpacing: 12,
                               mainAxisSpacing: 12,
                             ),
-                        itemCount: disciplinasDisponibles.length,
+                        itemCount: _disciplinasDisponibles.length,
                         itemBuilder: (ctx, i) {
-                          final d = disciplinasDisponibles[i];
+                          final d = _disciplinasDisponibles[i];
                           final selected = disciplinasSel.contains(d.id);
                           return InkWell(
                             onTap: () => setState(
@@ -1642,7 +1011,7 @@ class _CanchaFormState extends State<_CanchaForm>
                                       Expanded(
                                         child: Text(
                                           d.nombre,
-                                          style: TextStyle(
+                                          style: const TextStyle(
                                             color: Colors.white,
                                             fontWeight: FontWeight.w600,
                                           ),
@@ -1661,7 +1030,7 @@ class _CanchaFormState extends State<_CanchaForm>
                                   Expanded(
                                     child: Text(
                                       d.descripcion,
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                         color: Colors.white70,
                                         fontSize: 12,
                                       ),
@@ -1674,10 +1043,10 @@ class _CanchaFormState extends State<_CanchaForm>
                         },
                       ),
                       if (disciplinasSel.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 12),
+                        const Padding(
+                          padding: EdgeInsets.only(top: 12),
                           child: _Card(
-                            color: const Color(0xFF252A33),
+                            color: Color(0xFF252A33),
                             dashed: true,
                             child: SizedBox(
                               height: 100,
@@ -1701,7 +1070,7 @@ class _CanchaFormState extends State<_CanchaForm>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _SectionTitle(
+                      const _SectionTitle(
                         icon: Icons.settings,
                         title: 'Elementos y Partes Adicionales',
                       ),
@@ -1730,20 +1099,23 @@ class _CanchaFormState extends State<_CanchaForm>
                                     children: [
                                       Row(
                                         children: [
-                                          Expanded(
-                                            child: Text(
-                                              '¿Es reglamentaria?',
-                                              style: TextStyle(
-                                                color: Colors.white70,
-                                              ),
+                                          const Text(
+                                            'Reglamentaria',
+                                            style: TextStyle(
+                                              color: Colors.white70,
                                             ),
                                           ),
-                                          Switch(
-                                            value: reglamentaria,
-                                            onChanged: (v) => setState(() {
-                                              reglamentaria = v;
-                                            }),
-                                            activeColor: accent,
+                                          const Spacer(),
+                                          StatefulBuilder(
+                                            builder: (ctx, setInner) {
+                                              return Switch(
+                                                value: reglamentaria,
+                                                onChanged: (v) => setInner(
+                                                  () => reglamentaria = v,
+                                                ),
+                                                activeColor: accent,
+                                              );
+                                            },
                                           ),
                                         ],
                                       ),
@@ -1762,7 +1134,7 @@ class _CanchaFormState extends State<_CanchaForm>
                                             borderRadius: BorderRadius.circular(
                                               10,
                                             ),
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Colors.white24,
                                             ),
                                           ),
@@ -1783,7 +1155,7 @@ class _CanchaFormState extends State<_CanchaForm>
                                             borderRadius: BorderRadius.circular(
                                               10,
                                             ),
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Colors.white24,
                                             ),
                                           ),
@@ -1828,8 +1200,8 @@ class _CanchaFormState extends State<_CanchaForm>
                       ),
                       const SizedBox(height: 16),
                       if (partes.isEmpty)
-                        _Card(
-                          color: const Color(0xFF252A33),
+                        const _Card(
+                          color: Color(0xFF252A33),
                           dashed: true,
                           child: SizedBox(
                             height: 120,
@@ -1859,7 +1231,7 @@ class _CanchaFormState extends State<_CanchaForm>
                                                 CrossAxisAlignment.start,
                                             children: [
                                               if (p.reglamentaria)
-                                                _Badge(
+                                                const _Badge(
                                                   label: 'Reglamentaria',
                                                   color: Colors.green,
                                                 ),
@@ -1879,14 +1251,13 @@ class _CanchaFormState extends State<_CanchaForm>
                                                   ),
                                                 ),
                                               if (p.observaciones.isNotEmpty)
-                                                Padding(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                        top: 4,
-                                                      ),
+                                                const Padding(
+                                                  padding: EdgeInsets.only(
+                                                    top: 4,
+                                                  ),
                                                   child: Text(
-                                                    p.observaciones,
-                                                    style: const TextStyle(
+                                                    'Observaciones',
+                                                    style: TextStyle(
                                                       color: Colors.white70,
                                                       fontStyle:
                                                           FontStyle.italic,
@@ -2140,44 +1511,7 @@ class _Badge extends StatelessWidget {
   );
 }
 
-class _ToggleChip extends StatelessWidget {
-  final String label;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-  const _ToggleChip({
-    required this.label,
-    required this.value,
-    required this.onChanged,
-  });
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () => onChanged(!value),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: value ? const Color(0xFF0E3B24) : const Color(0xFF252A33),
-          border: Border.all(
-            color: value ? Colors.greenAccent : Colors.white24,
-          ),
-          borderRadius: BorderRadius.circular(24),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              value ? Icons.check_circle : Icons.circle_outlined,
-              color: value ? Colors.greenAccent : Colors.white38,
-              size: 18,
-            ),
-            const SizedBox(width: 8),
-            Text(label, style: const TextStyle(color: Colors.white)),
-          ],
-        ),
-      ),
-    );
-  }
-}
+// _ToggleChip eliminado por solicitud; ya no se usa sección Características.
 
 class _DeleteDialog extends StatelessWidget {
   final VoidCallback onCancel;
@@ -2239,3 +1573,68 @@ Future<String?> _promptUrl(BuildContext context) async {
     },
   );
 }
+
+// Disciplinas mock locales (idénticas a las del otro archivo)
+class _DisciplinaMng {
+  final String id;
+  final String nombre;
+  final String categoria;
+  final String descripcion;
+  _DisciplinaMng({
+    required this.id,
+    required this.nombre,
+    required this.categoria,
+    required this.descripcion,
+  });
+}
+
+final _disciplinasDisponibles = <_DisciplinaMng>[
+  _DisciplinaMng(
+    id: '1',
+    nombre: 'Fútbol 11',
+    categoria: 'Fútbol',
+    descripcion: 'Fútbol tradicional con 11 jugadores por equipo',
+  ),
+  _DisciplinaMng(
+    id: '2',
+    nombre: 'Fútbol 7',
+    categoria: 'Fútbol',
+    descripcion: 'Fútbol con 7 jugadores por equipo',
+  ),
+  _DisciplinaMng(
+    id: '3',
+    nombre: 'Fútbol 5',
+    categoria: 'Fútbol',
+    descripcion: 'Fútbol sala con 5 jugadores por equipo',
+  ),
+  _DisciplinaMng(
+    id: '4',
+    nombre: 'Baloncesto',
+    categoria: 'Baloncesto',
+    descripcion: 'Deporte de canasta con 5 jugadores por equipo',
+  ),
+  _DisciplinaMng(
+    id: '5',
+    nombre: 'Voleibol',
+    categoria: 'Voleibol',
+    descripcion: 'Deporte de red con 6 jugadores por equipo',
+  ),
+  _DisciplinaMng(
+    id: '6',
+    nombre: 'Tenis',
+    categoria: 'Tenis',
+    descripcion: 'Deporte individual o de parejas con raqueta',
+  ),
+  _DisciplinaMng(
+    id: '7',
+    nombre: 'Pádel',
+    categoria: 'Pádel',
+    descripcion: 'Deporte de raqueta en pista cerrada',
+  ),
+  _DisciplinaMng(
+    id: '8',
+    nombre: 'Atletismo',
+    categoria: 'Atletismo',
+    descripcion: 'Carreras y competencias atléticas',
+  ),
+];

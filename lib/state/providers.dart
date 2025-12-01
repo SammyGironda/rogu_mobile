@@ -43,7 +43,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true);
     final user = await _authService.getUser();
     final token = await _authService.getToken();
-    
+
     if (user != null && token != null) {
       state = state.copyWith(
         isAuthenticated: true,
@@ -63,9 +63,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<bool> login(String email, String password) async {
     state = state.copyWith(isLoading: true, error: null);
-    
+
     final result = await _authService.login(email, password);
-    
+
     if (result['success']) {
       state = state.copyWith(
         isAuthenticated: true,
@@ -86,11 +86,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> logout() async {
     await _authService.logout();
-    state = state.copyWith(
-      isAuthenticated: false,
-      user: null,
-      error: null,
-    );
+    state = state.copyWith(isAuthenticated: false, user: null, error: null);
   }
 }
 
@@ -102,4 +98,6 @@ final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
 });
 
 // Profile service provider (para extracción y actualización de datos de persona/usuario)
-final profileServiceProvider = Provider<ProfileService>((ref) => ProfileService());
+final profileServiceProvider = Provider<ProfileService>(
+  (ref) => ProfileService(),
+);

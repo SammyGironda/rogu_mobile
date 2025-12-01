@@ -5,13 +5,16 @@ import '../state/providers.dart';
 import '../widgets/bottom_nav.dart';
 import '../widgets/app_drawer.dart';
 import 'login_screen.dart';
-import '../widgets/gradient_button.dart';
 
-final _historyProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
-  final authState = ref.watch(authProvider);
-  if (authState.user == null) return [];
-  return reservationsService.getReservationsForUser(int.parse(authState.user!.id));
-});
+final _historyProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>(
+  (ref) async {
+    final authState = ref.watch(authProvider);
+    if (authState.user == null) return [];
+    return reservationsService.getReservationsForUser(
+      int.parse(authState.user!.id),
+    );
+  },
+);
 
 class BookingHistoryScreen extends ConsumerWidget {
   // Restauramos la ruta original utilizada en navegación para que el botón funcione.
@@ -22,34 +25,13 @@ class BookingHistoryScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
-    
     if (!authState.isAuthenticated) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Mis Reservas')),
-        drawer: const AppDrawer(),
-        bottomNavigationBar: const BottomNavBar(),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text('Inicia sesión para ver tus reservas'),
-              const SizedBox(height: 16),
-              GradientButton(
-                onPressed: () => Navigator.pushNamed(context, LoginScreen.routeName),
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(Icons.lock_open, color: Colors.white),
-                    SizedBox(width: 8),
-                    Text('Iniciar Sesión'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (ModalRoute.of(context)?.isCurrent ?? true) {
+          Navigator.pushReplacementNamed(context, LoginScreen.routeName);
+        }
+      });
+      return const SizedBox.shrink();
     }
 
     final historyAsync = ref.watch(_historyProvider);
@@ -75,11 +57,13 @@ class BookingHistoryScreen extends ConsumerWidget {
               // Handle date parsing safely
               DateTime fecha;
               try {
-                 fecha = DateTime.parse(reserva['fechaReserva'] ?? reserva['iniciaEn']);
+                fecha = DateTime.parse(
+                  reserva['fechaReserva'] ?? reserva['iniciaEn'],
+                );
               } catch (e) {
-                 fecha = DateTime.now();
+                fecha = DateTime.now();
               }
-              
+
               final horaInicio = reserva['horaInicio'] ?? '';
               final horaFin = reserva['horaFin'] ?? '';
               final estado = reserva['estado'] ?? 'PENDIENTE';
@@ -89,15 +73,26 @@ class BookingHistoryScreen extends ConsumerWidget {
                 child: ListTile(
                   leading: CircleAvatar(
                     backgroundColor: _getStatusColor(estado),
-                    child: const Icon(Icons.calendar_today, color: Colors.white),
+                    child: const Icon(
+                      Icons.calendar_today,
+                      color: Colors.white,
+                    ),
                   ),
                   title: Text(cancha['nombre'] ?? 'Cancha'),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(sede['nombre'] ?? 'Sede desconocida'),
-                      Text('${fecha.day}/${fecha.month}/${fecha.year} • $horaInicio - $horaFin'),
-                      Text('Estado: $estado', style: TextStyle(color: _getStatusColor(estado), fontWeight: FontWeight.bold)),
+                      Text(
+                        '${fecha.day}/${fecha.month}/${fecha.year} • $horaInicio - $horaFin',
+                      ),
+                      Text(
+                        'Estado: $estado',
+                        style: TextStyle(
+                          color: _getStatusColor(estado),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ],
                   ),
                   isThreeLine: true,

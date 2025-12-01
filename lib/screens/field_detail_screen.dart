@@ -7,7 +7,11 @@ import 'select_slot_screen.dart';
 class FieldDetailScreen extends StatelessWidget {
   final Field field;
   final Venue venue;
-  const FieldDetailScreen({super.key, required this.field, required this.venue});
+  const FieldDetailScreen({
+    super.key,
+    required this.field,
+    required this.venue,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -19,17 +23,32 @@ class FieldDetailScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ImagesCarousel(images: field.fotos.isNotEmpty ? field.fotos : (venue.fotoPrincipal != null ? [venue.fotoPrincipal!] : [])),
+            ImagesCarousel(
+              images: field.fotos.isNotEmpty
+                  ? field.fotos
+                  : (venue.fotoPrincipal != null ? [venue.fotoPrincipal!] : []),
+            ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(field.nombre, style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+                  Text(
+                    field.nombre,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text(venue.nombre, style: theme.textTheme.bodyMedium?.copyWith(color: AppColors.neutral600)),
+                  Text(
+                    venue.nombre,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: AppColors.neutral600,
+                    ),
+                  ),
                   const SizedBox(height: 12),
-                  if (field.descripcion != null && field.descripcion!.isNotEmpty)
+                  if (field.descripcion != null &&
+                      field.descripcion!.isNotEmpty)
                     Text(field.descripcion!, style: theme.textTheme.bodyMedium),
                   const SizedBox(height: 16),
                   HoursBox(isDark: isDark),
@@ -39,11 +58,16 @@ class FieldDetailScreen extends StatelessWidget {
                     child: ElevatedButton(
                       onPressed: () {
                         // Aquí se integrará el flujo de creación de reserva (horarios / checkout)
-                        Navigator.of(context).push(MaterialPageRoute(
-                          builder: (_) => SelectSlotScreen(field: field, venue: venue),
-                        ));
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                SelectSlotScreen(field: field, venue: venue),
+                          ),
+                        );
                       },
-                      style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
                       child: const Text('Realizar la reserva'),
                     ),
                   ),
@@ -138,11 +162,22 @@ class HoursBox extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Horarios de Atención', style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              'Horarios de Atención',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 8),
-            Text('Lunes - Domingo: 08:00 - 22:00', style: Theme.of(context).textTheme.bodyMedium),
+            Text(
+              'Lunes - Domingo: 08:00 - 22:00',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
             const SizedBox(height: 4),
-            Text('Nota: Ajustar con datos reales del backend si están disponibles.', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.neutral600)),
+            Text(
+              'Nota: Ajustar con datos reales del backend si están disponibles.',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.neutral600),
+            ),
           ],
         ),
       ),

@@ -10,7 +10,7 @@ class AuthService {
 
   Future<Map<String, dynamic>> login(String email, String password) async {
     final url = Uri.parse('${AppConfig.apiBaseUrl}/auth/login');
-    
+
     try {
       final response = await http.post(
         url,
@@ -26,7 +26,7 @@ class AuthService {
         // Save to SharedPreferences
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString(_tokenKey, token);
-        
+
         // Map backend user to local User model
         // Backend: {correo, usuario, idPersona, idUsuario, roles}
         final user = User(
@@ -36,12 +36,14 @@ class AuthService {
           email: userData['correo'],
           // avatarUrl no disponible todavía
         );
-        
+
         await prefs.setString(_userKey, jsonEncode(user.toMap()));
 
         return {'success': true, 'user': user, 'token': token};
       } else {
-        final decoded = response.body.isNotEmpty ? jsonDecode(response.body) : null;
+        final decoded = response.body.isNotEmpty
+            ? jsonDecode(response.body)
+            : null;
         String message = 'Error al iniciar sesión';
         if (decoded != null) {
           final m = decoded['message'];
@@ -95,10 +97,7 @@ class AuthService {
 
       if (personaRes.statusCode != 201 && personaRes.statusCode != 200) {
         final txt = personaRes.body;
-        return {
-          'success': false,
-          'message': 'Error al crear la persona: $txt',
-        };
+        return {'success': false, 'message': 'Error al crear la persona: $txt'};
       }
 
       final personaData = jsonDecode(personaRes.body);
@@ -133,15 +132,9 @@ class AuthService {
 
       final data = jsonDecode(registerRes.body);
       // El backend de register actualmente devuelve el usuario creado (sin token)
-      return {
-        'success': true,
-        'data': data,
-      };
+      return {'success': true, 'data': data};
     } catch (e) {
-      return {
-        'success': false,
-        'message': 'Error de conexión: $e',
-      };
+      return {'success': false, 'message': 'Error de conexión: $e'};
     }
   }
 
@@ -176,7 +169,7 @@ class AuthService {
     }
     return null;
   }
-  
+
   Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_tokenKey);
