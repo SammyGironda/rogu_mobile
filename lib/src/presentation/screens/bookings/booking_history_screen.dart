@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../apis/deprecated/reservations_service.dart';
-import '../../../../state/providers.dart';
+import '../../state/providers.dart';
 import '../../widgets/bottom_nav.dart';
 import '../../widgets/app_drawer.dart';
 import '../auth/login_screen.dart';

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
-import '../../../state/providers.dart';
+import '../state/providers.dart';
 import '../../apis/deprecated/gestion_service.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/bookings/new_reservation_screen.dart';
@@ -60,6 +60,7 @@ class BottomNavBar extends ConsumerWidget {
           final result = await gestionService.resolveGestionEntryForPersona(
             personaId,
           );
+          if (!context.mounted) return;
           if (result['success'] != true) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(

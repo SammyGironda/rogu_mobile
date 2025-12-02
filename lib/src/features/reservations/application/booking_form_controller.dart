@@ -5,7 +5,7 @@ import '../../../data/models/venue.dart';
 import '../../../apis/deprecated/fields_service.dart';
 import '../../../apis/deprecated/reservations_service.dart';
 import '../../../core/utils/storage_helper.dart';
-import '../../../../state/providers.dart';
+import '../../../presentation/state/providers.dart';
 
 class RentalOption {
   const RentalOption({

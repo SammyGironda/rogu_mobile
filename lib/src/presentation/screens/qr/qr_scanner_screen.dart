@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../widgets/bottom_nav.dart';
 import '../../widgets/app_drawer.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../../state/providers.dart';
+import '../../state/providers.dart';
 import '../auth/login_screen.dart';
 
 // TODO: Reemplazar con modelos reales de la base de datos

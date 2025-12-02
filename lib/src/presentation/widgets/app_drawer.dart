@@ -5,7 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/bookings/new_reservation_screen.dart';
 import '../screens/management/gestion_canchas_screen.dart';
-import '../../../state/providers.dart';
+import '../state/providers.dart';
 import '../../apis/deprecated/gestion_service.dart';
 import '../../features/venues/presentation/venues_screen.dart';
 
@@ -66,6 +66,7 @@ class AppDrawer extends ConsumerWidget {
               final result = await gestionService.resolveGestionEntryForPersona(
                 personaId,
               );
+              if (!context.mounted) return;
               if (result['success'] != true) {
                 // Acceso denegado o error
                 ScaffoldMessenger.of(context).showSnackBar(

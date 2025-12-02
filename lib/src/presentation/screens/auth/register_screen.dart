@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../state/providers.dart';
+import '../../state/providers.dart';
 import '../../widgets/gradient_button.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -225,8 +225,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     validator: (v) {
                       if (v == null || v.isEmpty) return 'Requerido';
                       if (v.length < 5) return 'CI inválido';
-                      if (int.tryParse(v) == null)
+                      if (int.tryParse(v) == null) {
                         return 'CI debe ser numérico';
+                      }
                       return null;
                     },
                   ),
@@ -358,8 +359,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     validator: (v) {
                       if (v == null || v.isEmpty) return 'Requerido';
                       if (v.length < 8) return 'Mínimo 8 caracteres';
-                      if (v != _contrasenaCtrl.text)
+                      if (v != _contrasenaCtrl.text) {
                         return 'Las contraseñas deben coincidir';
+                      }
                       return null;
                     },
                   ),

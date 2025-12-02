@@ -5,7 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/bottom_nav.dart';
 import '../../../apis/deprecated/gestion_service.dart';
-import '../../../../state/providers.dart';
+import '../../state/providers.dart';
 import '../auth/login_screen.dart';
 import '../bookings/new_reservation_screen.dart';
 import '../dashboard/dashboard_screen.dart';
@@ -1119,7 +1119,7 @@ class _CanchaFormState extends State<_CanchaForm>
                                                 onChanged: (v) => setInner(
                                                   () => reglamentaria = v,
                                                 ),
-                                                activeColor: accent,
+                                                activeThumbColor: accent,
                                               );
                                             },
                                           ),
@@ -1421,10 +1421,11 @@ class _CanchaFormState extends State<_CanchaForm>
                           _error = 'Error: $e';
                         });
                       } finally {
-                        if (mounted)
+                        if (mounted) {
                           setState(() {
                             _saving = false;
                           });
+                        }
                       }
                     },
               icon: _saving

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../state/providers.dart';
+import '../../state/providers.dart';
 import '../dashboard/dashboard_screen.dart';
 import 'register_screen.dart';
 import '../../widgets/gradient_button.dart';

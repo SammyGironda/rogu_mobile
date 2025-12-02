@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../state/providers.dart';
+import '../../state/providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../widgets/bottom_nav.dart';
 import '../../widgets/gradient_button.dart';
@@ -223,8 +223,9 @@ class UserProfileScreen extends ConsumerWidget {
                 // Mostrar estado de dueño/admin en lugar de botón cuando corresponda
                 FutureBuilder<Map<String, bool>>(
                   future: () async {
-                    if (personaId == null)
+                    if (personaId == null) {
                       return {'isOwner': false, 'isAdmin': false};
+                    }
                     final res = await gestionService
                         .resolveGestionEntryForPersona(personaId);
                     final isOwner = (res['isOwner'] == true);
@@ -309,8 +310,9 @@ class UserProfileScreen extends ConsumerWidget {
     if (p == null) return '-';
     final tipo = p.documentoTipo;
     final num = p.documentoNumero;
-    if ((tipo == null || tipo.isEmpty) && (num == null || num.isEmpty))
+    if ((tipo == null || tipo.isEmpty) && (num == null || num.isEmpty)) {
       return '-';
+    }
     return [tipo, num].where((e) => e != null && e.isNotEmpty).join(' ');
   }
 
@@ -432,12 +434,13 @@ class UserProfileScreen extends ConsumerWidget {
                   personaId: user!.personaId!,
                   fields: updateFields,
                 );
-
+                if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Datos actualizados')),
                 );
                 final _ = ref.refresh(personaProvider);
               } catch (e) {
+                if (!context.mounted) return;
                 ScaffoldMessenger.of(
                   context,
                 ).showSnackBar(SnackBar(content: Text('Error: $e')));
@@ -506,11 +509,12 @@ class UserProfileScreen extends ConsumerWidget {
                   userId: user.id,
                   newPassword: newCtrl.text.trim(),
                 );
-
+                if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Contraseña cambiada')),
                 );
               } catch (e) {
+                if (!context.mounted) return;
                 ScaffoldMessenger.of(
                   context,
                 ).showSnackBar(SnackBar(content: Text('Error: $e')));
@@ -558,11 +562,12 @@ class UserProfileScreen extends ConsumerWidget {
     try {
       final profileRepo = ref.read(profileRepositoryProvider);
       await profileRepo.makeOwner(personaId: user!.personaId!);
-
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Solicitud de dueño registrada')),
       );
     } catch (e) {
+      if (!context.mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Error: $e')));

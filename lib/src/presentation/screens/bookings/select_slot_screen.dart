@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/models/field.dart';
 import '../../../data/models/venue.dart';
 import '../../../data/repositories/reservations_repository.dart';
-import '../../../../state/providers.dart';
+import '../../state/providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/storage_helper.dart';
 import '../auth/login_screen.dart';

@@ -74,12 +74,13 @@ class GestionService {
     String licenciaFuncionamiento = '',
   }) async {
     final token = await _getToken();
-    if (token == null)
+    if (token == null) {
       return {
         'success': false,
         'message':
             'No autenticado. Vuelve a iniciar sesión para actualizar permisos.',
       };
+    }
     final uri = Uri.parse('$baseUrl/sede');
     final body = {
       'idPersonaD': idPersonaD,

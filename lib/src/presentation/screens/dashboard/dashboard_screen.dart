@@ -7,7 +7,7 @@ import '../../widgets/gallery_section.dart';
 import '../../widgets/footer_rogu.dart';
 import '../../widgets/gradient_button.dart';
 import '../auth/login_screen.dart';
-import '../../../../state/providers.dart';
+import '../../state/providers.dart';
 import '../bookings/new_reservation_screen.dart';
 import '../management/gestion_canchas_screen.dart';
 import '../../../apis/deprecated/gestion_service.dart';
@@ -192,6 +192,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 }
                 final result = await gestionService
                     .resolveGestionEntryForPersona(personaId);
+                if (!context.mounted) return;
                 if (result['success'] != true) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(

@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../src/data/models/user.dart';
-import '../src/data/repositories/auth_repository.dart';
-import '../src/data/repositories/profile_repository.dart';
-import '../src/core/utils/storage_helper.dart';
+import '../../data/models/user.dart';
+import '../../data/repositories/auth_repository.dart';
+import '../../data/repositories/profile_repository.dart';
+import '../../core/utils/storage_helper.dart';
 
 // Auth State
 class AuthState {

@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/venues/application/venues_controller.dart';
 import '../../features/venues/presentation/venues_screen.dart';
 import '../../data/models/venue.dart';
-import '../../../theme/theme.dart';
+import '../../core/theme/app_theme.dart';
 import 'gradient_button.dart';
 
 final _sportFilterProvider = StateProvider<String>((_) => 'todo');

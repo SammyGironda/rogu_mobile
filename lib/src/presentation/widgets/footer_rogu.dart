@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../theme/theme.dart';
+import '../../core/theme/app_theme.dart';
 // Removed unused import
 
 class ROGUFooter extends StatelessWidget {

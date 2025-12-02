@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
-import '../../../state/providers.dart';
+import '../state/providers.dart';
 import 'dashboard/dashboard_screen.dart';
 import 'auth/login_screen.dart';
 
@@ -42,7 +42,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     final authState = ref.watch(authProvider);
     if (!authState.isLoading) {
       // We use a microtask to avoid navigation during build
+      // ignore: use_build_context_synchronously
       Future.microtask(() {
+        if (!mounted) return;
         if (authState.isAuthenticated) {
           Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
         } else {

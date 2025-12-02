@@ -383,10 +383,11 @@ class _SedeFormState extends State<_SedeForm> {
         _errorMsg = 'Error: $e';
       });
     } finally {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _submitting = false;
         });
+      }
     }
   }
 
@@ -1741,7 +1742,7 @@ class _CanchaFormState extends State<_CanchaForm>
                                             onChanged: (v) => setState(() {
                                               reglamentaria = v;
                                             }),
-                                            activeColor: accent,
+                                            activeThumbColor: accent,
                                           ),
                                         ],
                                       ),
@@ -2042,10 +2043,11 @@ class _CanchaFormState extends State<_CanchaForm>
                           _error = 'Error: $e';
                         });
                       } finally {
-                        if (mounted)
+                        if (mounted) {
                           setState(() {
                             _saving = false;
                           });
+                        }
                       }
                     },
               icon: _saving
