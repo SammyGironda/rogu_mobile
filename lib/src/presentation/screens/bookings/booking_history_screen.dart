@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../apis/deprecated/reservations_service.dart';
+import '../../../data/repositories/reservations_repository.dart';
 import '../../state/providers.dart';
 import '../../widgets/bottom_nav.dart';
 import '../../widgets/app_drawer.dart';
@@ -10,9 +10,8 @@ final _historyProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>(
   (ref) async {
     final authState = ref.watch(authProvider);
     if (authState.user == null) return [];
-    return reservationsService.getReservationsForUser(
-      int.parse(authState.user!.id),
-    );
+    final reservationsRepo = ReservationsRepository();
+    return reservationsRepo.getUserReservations(int.parse(authState.user!.id));
   },
 );
 

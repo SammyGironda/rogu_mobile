@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/bottom_nav.dart';
-import '../../../apis/deprecated/gestion_service.dart';
+import '../../../data/repositories/profile_repository.dart';
+import '../../../data/repositories/fields_repository.dart';
+import '../../../data/repositories/venues_repository.dart';
 import '../../state/providers.dart';
 import '../auth/login_screen.dart';
 import '../bookings/new_reservation_screen.dart';
@@ -101,7 +103,7 @@ class _GestionCanchasScreenState extends ConsumerState<GestionCanchasScreen> {
   void initState() {
     super.initState();
     // Inicializar estado de sede al entrar
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final auth = ref.read(authProvider);
       if (!auth.isAuthenticated) {
         Navigator.pushReplacementNamed(context, LoginScreen.routeName);
@@ -113,22 +115,15 @@ class _GestionCanchasScreenState extends ConsumerState<GestionCanchasScreen> {
         Navigator.pushReplacementNamed(context, NewReservationScreen.routeName);
         return;
       }
-      // Usa servicio unificado para validar Admin/Dueño y traer sede
-      gestionService.resolveGestionEntryForPersona(personaId).then((result) {
+      // Usa repositorio unificado para validar Admin/Dueño
+      final profileRepo = ProfileRepository();
+      final venuesRepo = VenuesRepository();
+
+      try {
+        final rolesMap = await profileRepo.checkUserRoles(personaId.toString());
         if (!mounted) return;
-        if (result['success'] != true) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                result['message']?.toString() ?? 'Acceso restringido',
-              ),
-            ),
-          );
-          Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
-          return;
-        }
-        final isAdmin = result['isAdmin'] == true;
-        final isOwner = result['isOwner'] == true;
+        final isAdmin = rolesMap['isAdmin'] == true;
+        final isOwner = rolesMap['isOwner'] == true;
         if (!(isAdmin || isOwner)) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -139,17 +134,11 @@ class _GestionCanchasScreenState extends ConsumerState<GestionCanchasScreen> {
           return;
         }
 
-        final dynamic sedeObj = result['sede'];
-        if (sedeObj == null) {
-          // Sin sede: enviar a creación de sede
-          Navigator.pushReplacementNamed(
-            context,
-            NewReservationScreen.routeName,
-          );
-          return;
-        }
+        // Obtener sede de la persona
+        final sedeObj = await venuesRepo.getVenueByPersona(personaId);
+        if (!mounted) return;
         // Normalizar sede y setear provider local
-        final raw = sedeObj as Map<String, dynamic>;
+        final raw = sedeObj;
         final sede = SedeMng(
           id: (raw['idSede'] ?? raw['id'] ?? raw['idsede'] ?? '').toString(),
           nombre: raw['nombre']?.toString() ?? '',
@@ -168,7 +157,11 @@ class _GestionCanchasScreenState extends ConsumerState<GestionCanchasScreen> {
                   .toString(),
         );
         ref.read(_sedeProvider.notifier).state = sede;
-      });
+      } catch (e) {
+        if (!mounted) return;
+        // Sin sede: redirigir a creación
+        Navigator.pushReplacementNamed(context, NewReservationScreen.routeName);
+      }
     });
   }
 
@@ -242,45 +235,39 @@ class _CanchasManagerState extends ConsumerState<_CanchasManager> {
       _loading = true;
       _error = null;
     });
-    final resp = await gestionService.listCanchas(idSedeInt);
-    if (!mounted) return;
-    if (resp['success'] == true) {
-      final data = resp['data'] as List? ?? [];
-      final list = data.map((e) {
-        final m = e as Map<String, dynamic>;
+
+    final fieldsRepo = FieldsRepository();
+    try {
+      final data = await fieldsRepo.getFieldsByVenue(idSedeInt);
+      if (!mounted) return;
+      final list = data.map((field) {
         return CanchaMng(
-          id: (m['idCancha'] ?? m['id'] ?? '').toString(),
+          id: field.id.toString(),
           sedeId: sede.id,
-          nombre: m['nombre']?.toString() ?? 'Cancha',
-          superficie: m['superficie']?.toString() ?? '',
-          cubierta: (m['cubierta'] is bool)
-              ? m['cubierta']
-              : (m['cubierta']?.toString() == 'true'),
-          iluminacion:
-              (m['iluminacion']?.toString().toUpperCase() == 'SI') ||
-              (m['iluminacion']?.toString() == 'true'),
-          techada: (m['techada'] is bool)
-              ? m['techada']
-              : (m['techada']?.toString() == 'true'),
-          aforoMaximo: (m['aforoMax'] ?? m['aforoMaximo'] ?? '').toString(),
-          dimensiones: m['dimensiones']?.toString() ?? '',
-          reglasUso: m['reglasUso']?.toString() ?? '',
-          fotos: (m['fotos'] is List)
-              ? (m['fotos'] as List).map((x) => x.toString()).toList()
-              : <String>[],
-          disciplinas: (m['disciplinas'] is List)
-              ? (m['disciplinas'] as List).map((x) => x.toString()).toList()
-              : <String>[],
+          nombre: field.nombre,
+          superficie: field.superficie ?? "",
+          cubierta: field.cubierta ?? false,
+          iluminacion: field.iluminacion ?? false,
+          techada: field.techada ?? false,
+          aforoMaximo: field.aforoMaximo?.toString() ?? "0",
+          dimensiones: field.dimensiones ?? "",
+          reglasUso: field.reglasUso ?? "",
+          fotos: field.fotos,
+          disciplinas: field.disciplinas ?? [],
           partesAdicionales: const [],
         );
       }).toList();
       ref.read(_canchasProvider.notifier).state = list;
-    } else {
-      _error = resp['message']?.toString();
+      setState(() {
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
     }
-    setState(() {
-      _loading = false;
-    });
   }
 
   @override
@@ -1345,22 +1332,46 @@ class _CanchaFormState extends State<_CanchaForm>
                           });
                           return;
                         }
-                        Map<String, dynamic> resp;
+
+                        final fieldsRepo = FieldsRepository();
                         if (widget.cancha == null) {
-                          resp = await gestionService.createCancha(
-                            idSede: sedeIdInt,
-                            nombre: _nombre.text.trim(),
-                            superficie: _superficie.text.trim(),
-                            cubierta: cubierta,
-                            iluminacion: iluminacion,
-                            techada: techada,
-                            aforoMax: aforoInt,
-                            dimensiones: _dimensiones.text.trim(),
-                            reglasUso: _reglas.text.trim(),
-                            disciplinas: List.of(disciplinasSel),
-                            fotos: List.of(fotos),
+                          // Crear nueva cancha
+                          final fieldData = {
+                            'idSede': sedeIdInt,
+                            'nombre': _nombre.text.trim(),
+                            'superficie': _superficie.text.trim(),
+                            'cubierta': cubierta,
+                            'iluminacion': iluminacion ? 'true' : 'false',
+                            'aforoMax': aforoInt,
+                            'dimensiones': _dimensiones.text.trim(),
+                            'reglasUso': _reglas.text.trim(),
+                            'disciplinas': List.of(disciplinasSel),
+                            'fotos': List.of(fotos),
+                            'estado': 'ACTIVA',
+                          };
+                          final result = await fieldsRepo.createField(
+                            fieldData,
+                          );
+                          widget.onSave(
+                            CanchaMng(
+                              id: result.id.toString(),
+                              sedeId: widget.sede.id,
+                              nombre: result.nombre,
+                              superficie: result.superficie ?? '',
+                              cubierta: result.cubierta ?? false,
+                              iluminacion: result.iluminacion ?? false,
+                              techada: techada,
+                              aforoMaximo:
+                                  result.aforoMaximo?.toString() ?? '0',
+                              dimensiones: result.dimensiones ?? '',
+                              reglasUso: result.reglasUso ?? '',
+                              fotos: result.fotos,
+                              disciplinas: result.disciplinas ?? [],
+                              partesAdicionales: const [],
+                            ),
                           );
                         } else {
+                          // Actualizar cancha existente
                           final canchaIdInt = int.tryParse(widget.cancha!.id);
                           if (canchaIdInt == null) {
                             setState(() {
@@ -1372,7 +1383,6 @@ class _CanchaFormState extends State<_CanchaForm>
                             'nombre': _nombre.text.trim(),
                             'superficie': _superficie.text.trim(),
                             'cubierta': cubierta,
-                            // Backend espera string con longitud >= 3
                             'iluminacion': iluminacion ? 'true' : 'false',
                             'aforoMax': aforoInt,
                             'dimensiones': _dimensiones.text.trim(),
@@ -1380,41 +1390,11 @@ class _CanchaFormState extends State<_CanchaForm>
                             'disciplinas': List.of(disciplinasSel),
                             'fotos': List.of(fotos),
                           };
-                          resp = await gestionService.updateCancha(
-                            canchaIdInt,
-                            fields,
+                          await fieldsRepo.updateField(
+                            idCancha: canchaIdInt,
+                            fieldData: fields,
                           );
-                        }
-                        if (resp['success'] == true) {
-                          widget.onSave(
-                            widget.cancha ??
-                                CanchaMng(
-                                  id:
-                                      (resp['data']?['idCancha'] ??
-                                              resp['data']?['id'] ??
-                                              DateTime.now()
-                                                  .millisecondsSinceEpoch)
-                                          .toString(),
-                                  sedeId: widget.sede.id,
-                                  nombre: _nombre.text.trim(),
-                                  superficie: _superficie.text.trim(),
-                                  cubierta: cubierta,
-                                  iluminacion: iluminacion,
-                                  techada: techada,
-                                  aforoMaximo: _aforo.text.trim(),
-                                  dimensiones: _dimensiones.text.trim(),
-                                  reglasUso: _reglas.text.trim(),
-                                  fotos: List.of(fotos),
-                                  disciplinas: List.of(disciplinasSel),
-                                  partesAdicionales: List.of(partes),
-                                ),
-                          );
-                        } else {
-                          setState(() {
-                            _error =
-                                resp['message']?.toString() ??
-                                'Error desconocido';
-                          });
+                          widget.onSave(widget.cancha!);
                         }
                       } catch (e) {
                         setState(() {

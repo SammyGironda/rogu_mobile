@@ -135,4 +135,28 @@ class ProfileRepository {
       throw Exception('Failed to make owner: $e');
     }
   }
+
+  /// Verificar roles de usuario (isOwner, isAdmin)
+  /// Retorna {'isOwner': bool, 'isAdmin': bool}
+  Future<Map<String, bool>> checkUserRoles(String personaId) async {
+    try {
+      final personaIdInt = int.parse(personaId);
+
+      // Obtener usuario por persona
+      final usuario = await _profileApi.getUsuarioByPersona(personaIdInt);
+      final userId = (usuario['id'] ?? usuario['idUsuario']) as int?;
+
+      if (userId == null) {
+        return {'isOwner': false, 'isAdmin': false};
+      }
+
+      // Verificar roles: 1=ADMIN, 3=DUENIO
+      final isAdmin = await _profileApi.hasUserRole(userId, 1);
+      final isOwner = await _profileApi.hasUserRole(userId, 3);
+
+      return {'isOwner': isOwner, 'isAdmin': isAdmin};
+    } catch (e) {
+      return {'isOwner': false, 'isAdmin': false};
+    }
+  }
 }

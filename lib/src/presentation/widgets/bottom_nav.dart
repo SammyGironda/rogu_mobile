@@ -3,10 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../state/providers.dart';
-import '../../apis/deprecated/gestion_service.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/bookings/new_reservation_screen.dart';
-import '../screens/management/gestion_canchas_screen.dart';
 
 /// Reusable BottomNavigationBar that maps fixed indices to named routes.
 class BottomNavBar extends ConsumerWidget {
@@ -49,7 +47,7 @@ class BottomNavBar extends ConsumerWidget {
             Navigator.pushNamed(context, LoginScreen.routeName);
             return;
           }
-          final personaId = int.tryParse(auth.user?.personaId ?? '');
+          final personaId = auth.user?.personaId;
           if (personaId == null) {
             Navigator.pushReplacementNamed(
               context,
@@ -57,34 +55,38 @@ class BottomNavBar extends ConsumerWidget {
             );
             return;
           }
-          final result = await gestionService.resolveGestionEntryForPersona(
-            personaId,
-          );
-          if (!context.mounted) return;
-          if (result['success'] != true) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  result['message']?.toString() ?? 'Acceso restringido',
+
+          // Verificar roles usando ProfileRepository
+          try {
+            final profileRepo = ref.read(profileRepositoryProvider);
+            final roles = await profileRepo.checkUserRoles(personaId);
+            final isOwner = roles['isOwner'] == true;
+            final isAdmin = roles['isAdmin'] == true;
+
+            if (!context.mounted) return;
+
+            if (!(isOwner || isAdmin)) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Acceso restringido a dueños o administradores',
+                  ),
                 ),
-              ),
-            );
-            return;
-          }
-          final sede = result['sede'];
-          if (sede == null) {
+              );
+              return;
+            }
+
+            // TODO: Verificar si tiene sede usando nueva API cuando esté disponible
+            // Por ahora, redirigir a crear sede
             Navigator.pushReplacementNamed(
               context,
               NewReservationScreen.routeName,
             );
-          } else {
-            if (GestionCanchasScreen.routeName != currentRoute) {
-              Navigator.pushReplacementNamed(
-                context,
-                GestionCanchasScreen.routeName,
-                arguments: {'sede': sede},
-              );
-            }
+          } catch (e) {
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('Error: $e')));
           }
           return;
         }

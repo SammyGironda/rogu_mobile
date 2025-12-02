@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../features/reservations/application/booking_form_controller.dart';
 import '../../../data/models/field.dart';
-import '../../../apis/deprecated/reservations_service.dart';
+import '../../../data/repositories/reservations_repository.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/bottom_nav.dart';

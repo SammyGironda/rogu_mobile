@@ -83,4 +83,25 @@ class ProfileApi {
       throw Exception('Make owner failed: ${response.body}');
     }
   }
+
+  /// Obtener usuario por ID de persona: GET /usuarios/persona/:idPersona
+  Future<Map<String, dynamic>> getUsuarioByPersona(int personaId) async {
+    final response = await _client.get('/usuarios/persona/$personaId');
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Get usuario by persona failed: ${response.body}');
+    }
+  }
+
+  /// Verificar si usuario tiene un rol específico: GET /usuario-rol/:idUsuario/:idRol
+  Future<bool> hasUserRole(int userId, int roleId) async {
+    try {
+      final response = await _client.get('/usuario-rol/$userId/$roleId');
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
 }

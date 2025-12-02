@@ -90,4 +90,29 @@ class VenuesApi {
       throw Exception('Delete venue failed: ${response.body}');
     }
   }
+
+  /// Obtener sede por personaId: GET /sede (con query idPersonaD)
+  Future<Map<String, dynamic>> getSedeByPersona(int personaId) async {
+    final response = await _client.get(
+      '/sede',
+      queryParams: {'idPersonaD': personaId.toString()},
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      // Puede devolver lista o objeto directo
+      if (data is List && data.isNotEmpty) {
+        return data.first as Map<String, dynamic>;
+      } else if (data is Map) {
+        final sedes = data['sedes'] as List? ?? [];
+        if (sedes.isNotEmpty) {
+          return sedes.first as Map<String, dynamic>;
+        }
+        return data as Map<String, dynamic>;
+      }
+      throw Exception('No venue found for persona $personaId');
+    } else {
+      throw Exception('Get sede by persona failed: ${response.body}');
+    }
+  }
 }

@@ -7,7 +7,6 @@ import '../../widgets/gradient_button.dart';
 import '../../widgets/app_drawer.dart';
 import '../../../data/models/persona.dart';
 import '../auth/login_screen.dart';
-import '../../../apis/deprecated/gestion_service.dart';
 
 // Provider separado para obtener Persona completa
 final personaProvider = FutureProvider.autoDispose<Persona?>((ref) async {
@@ -226,11 +225,14 @@ class UserProfileScreen extends ConsumerWidget {
                     if (personaId == null) {
                       return {'isOwner': false, 'isAdmin': false};
                     }
-                    final res = await gestionService
-                        .resolveGestionEntryForPersona(personaId);
-                    final isOwner = (res['isOwner'] == true);
-                    final isAdmin = (res['isAdmin'] == true);
-                    return {'isOwner': isOwner, 'isAdmin': isAdmin};
+                    try {
+                      final profileRepo = ref.read(profileRepositoryProvider);
+                      return await profileRepo.checkUserRoles(
+                        personaId.toString(),
+                      );
+                    } catch (e) {
+                      return {'isOwner': false, 'isAdmin': false};
+                    }
                   }(),
                   builder: (context, snap) {
                     final data = snap.data;

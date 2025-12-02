@@ -77,4 +77,14 @@ class VenuesRepository {
       throw Exception('Failed to delete venue: $e');
     }
   }
+
+  /// Obtener sede por personaId
+  Future<Map<String, dynamic>> getVenueByPersona(int personaId) async {
+    try {
+      final data = await _venuesApi.getSedeByPersona(personaId);
+      return data;
+    } catch (e) {
+      throw Exception('Failed to get venue by persona: $e');
+    }
+  }
 }

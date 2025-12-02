@@ -30,6 +30,20 @@ class FieldsRepository {
     }
   }
 
+  /// Obtener canchas por sede
+  Future<List<Field>> getFieldsByVenue(int venueId) async {
+    try {
+      final data = await _fieldsApi.getAllFields();
+      final fields = data
+          .map((e) => Field.fromJson(e as Map<String, dynamic>))
+          .where((f) => f.sedeId == venueId)
+          .toList();
+      return fields;
+    } catch (e) {
+      throw Exception('Failed to get fields by venue: $e');
+    }
+  }
+
   /// Crear cancha
   Future<Field> createField(Map<String, dynamic> fieldData) async {
     try {

@@ -9,8 +9,6 @@ import '../../widgets/gradient_button.dart';
 import '../auth/login_screen.dart';
 import '../../state/providers.dart';
 import '../bookings/new_reservation_screen.dart';
-import '../management/gestion_canchas_screen.dart';
-import '../../../apis/deprecated/gestion_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   static const String routeName = '/dashboard';
@@ -177,7 +175,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               leading: Icon(Icons.event_available, color: iconColor),
               title: const Text('Gestión de canchas'),
               onTap: () async {
-                // Acceso controlado: autenticación + dueño/admin + sede
                 final container = ProviderScope.containerOf(context);
                 final auth = container.read(authProvider);
                 if (!auth.isAuthenticated) {
@@ -185,33 +182,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   return;
                 }
                 final personaIdStr = auth.user?.personaId;
-                final personaId = int.tryParse(personaIdStr ?? '');
-                if (personaId == null) {
+                if (personaIdStr == null) {
                   Navigator.pushNamed(context, NewReservationScreen.routeName);
                   return;
                 }
-                final result = await gestionService
-                    .resolveGestionEntryForPersona(personaId);
-                if (!context.mounted) return;
-                if (result['success'] != true) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        result['message']?.toString() ?? 'Acceso restringido',
+
+                try {
+                  final profileRepo = container.read(profileRepositoryProvider);
+                  final roles = await profileRepo.checkUserRoles(personaIdStr);
+                  final isOwner = roles['isOwner'] == true;
+                  final isAdmin = roles['isAdmin'] == true;
+
+                  if (!context.mounted) return;
+
+                  if (!(isOwner || isAdmin)) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Acceso restringido a dueños o administradores',
+                        ),
                       ),
-                    ),
-                  );
-                  return;
-                }
-                final sede = result['sede'];
-                if (sede == null) {
+                    );
+                    return;
+                  }
+
+                  // Redirigir a gestión de sedes
                   Navigator.pushNamed(context, NewReservationScreen.routeName);
-                } else {
-                  Navigator.pushNamed(
+                } catch (e) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(
                     context,
-                    GestionCanchasScreen.routeName,
-                    arguments: {'sede': sede},
-                  );
+                  ).showSnackBar(SnackBar(content: Text('Error: $e')));
                 }
               },
             ),

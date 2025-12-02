@@ -4,9 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/bookings/new_reservation_screen.dart';
-import '../screens/management/gestion_canchas_screen.dart';
 import '../state/providers.dart';
-import '../../apis/deprecated/gestion_service.dart';
 import '../../features/venues/presentation/venues_screen.dart';
 
 class AppDrawer extends ConsumerWidget {
@@ -57,38 +55,38 @@ class AppDrawer extends ConsumerWidget {
                 return;
               }
               final personaIdStr = auth.user?.personaId;
-              final personaId = int.tryParse(personaIdStr ?? '');
-              if (personaId == null) {
-                // Sin persona asociada, enviar a creacion de sede (pantalla nueva)
+              if (personaIdStr == null) {
                 Navigator.pushNamed(context, NewReservationScreen.routeName);
                 return;
               }
-              final result = await gestionService.resolveGestionEntryForPersona(
-                personaId,
-              );
-              if (!context.mounted) return;
-              if (result['success'] != true) {
-                // Acceso denegado o error
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      result['message']?.toString() ?? 'Acceso restringido',
+
+              try {
+                final profileRepo = ref.read(profileRepositoryProvider);
+                final roles = await profileRepo.checkUserRoles(personaIdStr);
+                final isOwner = roles['isOwner'] == true;
+                final isAdmin = roles['isAdmin'] == true;
+
+                if (!context.mounted) return;
+
+                if (!(isOwner || isAdmin)) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Acceso restringido a dueños o administradores',
+                      ),
                     ),
-                  ),
-                );
-                return;
-              }
-              final sede = result['sede'];
-              if (sede == null) {
-                // No tiene sede creada: ir a pantalla de nueva reserva/creacion
+                  );
+                  return;
+                }
+
+                // TODO: Verificar si tiene sede usando nueva API cuando esté disponible
+                // Por ahora, redirigir a crear sede
                 Navigator.pushNamed(context, NewReservationScreen.routeName);
-              } else {
-                // Tiene sede: abrir gestion de canchas con args de sede
-                Navigator.pushNamed(
+              } catch (e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(
                   context,
-                  GestionCanchasScreen.routeName,
-                  arguments: {'sede': sede},
-                );
+                ).showSnackBar(SnackBar(content: Text('Error: $e')));
               }
             },
           ),

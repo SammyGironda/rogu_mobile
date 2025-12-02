@@ -2,8 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/field.dart';
 import '../../../data/models/venue.dart';
-import '../../../apis/deprecated/fields_service.dart';
-import '../../../apis/deprecated/reservations_service.dart';
+import '../../../data/repositories/venues_repository.dart';
+import '../../../data/repositories/reservations_repository.dart';
 import '../../../core/utils/storage_helper.dart';
 import '../../../presentation/state/providers.dart';
 
@@ -114,25 +114,26 @@ class BookingSubmitResult {
 
 class BookingFormRepository {
   BookingFormRepository({
-    required FieldsService fieldsService,
-    required ReservationsService reservationsService,
-  }) : _fieldsService = fieldsService,
-       _reservationsService = reservationsService;
+    required VenuesRepository venuesRepository,
+    required ReservationsRepository reservationsRepository,
+  }) : _venuesRepository = venuesRepository,
+       _reservationsRepository = reservationsRepository;
 
-  final FieldsService _fieldsService;
-  final ReservationsService _reservationsService;
+  final VenuesRepository _venuesRepository;
+  final ReservationsRepository _reservationsRepository;
 
-  Future<List<Venue>> fetchVenues() async => _fieldsService.fetchVenuesInicio();
+  Future<List<Venue>> fetchVenues() async =>
+      _venuesRepository.getVenuesInicio();
 
   Future<List<Field>> fetchFields(int venueId) async =>
-      _fieldsService.fetchVenueFields(venueId);
+      _venuesRepository.getVenueFields(venueId);
 
   Future<List<ReservationSlot>> fetchSlots(int fieldId, DateTime date) async {
-    final existing = await _reservationsService.getReservationsForField(
-      fieldId,
-      date,
+    final existing = await _reservationsRepository.getFieldReservations(
+      idCancha: fieldId,
+      fecha: date,
     );
-    return _reservationsService.buildSlots(existing);
+    return _reservationsRepository.buildSlots(existing);
   }
 
   Future<Map<String, dynamic>> createReservation({
@@ -143,23 +144,24 @@ class BookingFormRepository {
     required double monto,
     required String token,
   }) async {
-    return _reservationsService.createReservation(
+    return _reservationsRepository.createReservation(
       idCliente: idCliente,
       idCancha: idCancha,
       inicia: start,
       termina: end,
       montoBase: monto,
       montoExtra: 0,
-      token: token,
     );
   }
 }
 
 final bookingFormRepositoryProvider =
     Provider.autoDispose<BookingFormRepository>((ref) {
+      final venuesRepo = VenuesRepository();
+      final reservationsRepo = ReservationsRepository();
       return BookingFormRepository(
-        fieldsService: fieldsService,
-        reservationsService: reservationsService,
+        venuesRepository: venuesRepo,
+        reservationsRepository: reservationsRepo,
       );
     });
 
@@ -427,6 +429,7 @@ class BookingFormController extends StateNotifier<BookingFormState> {
       (f) => f.id == state.selectedFieldId,
       orElse: () => Field(
         id: state.selectedFieldId ?? 0,
+        sedeId: 0,
         nombre: 'Cancha',
         fotos: const [],
       ),
