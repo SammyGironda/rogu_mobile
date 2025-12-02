@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../screens/auth/login_screen.dart';
-import '../screens/bookings/new_reservation_screen.dart';
 import '../state/providers.dart';
 import '../../features/venues/presentation/venues_screen.dart';
 
@@ -56,7 +55,11 @@ class AppDrawer extends ConsumerWidget {
               }
               final personaIdStr = auth.user?.personaId;
               if (personaIdStr == null) {
-                Navigator.pushNamed(context, NewReservationScreen.routeName);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Error: Usuario sin persona asociada'),
+                  ),
+                );
                 return;
               }
 
@@ -79,9 +82,10 @@ class AppDrawer extends ConsumerWidget {
                   return;
                 }
 
-                // TODO: Verificar si tiene sede usando nueva API cuando esté disponible
-                // Por ahora, redirigir a crear sede
-                Navigator.pushNamed(context, NewReservationScreen.routeName);
+                // TODO: Implementar pantalla de gestión de sedes cuando esté disponible
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Funcionalidad en desarrollo')),
+                );
               } catch (e) {
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(

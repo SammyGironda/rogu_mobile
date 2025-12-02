@@ -9,10 +9,9 @@ import '../../../data/repositories/fields_repository.dart';
 import '../../../data/repositories/venues_repository.dart';
 import '../../state/providers.dart';
 import '../auth/login_screen.dart';
-import '../bookings/new_reservation_screen.dart';
 import '../dashboard/dashboard_screen.dart';
 
-// Modelos locales (idénticos a los usados en new_reservation_screen)
+// Modelos locales para gestión de sedes y canchas
 class SedeMng {
   final String id;
   final String nombre;
@@ -112,7 +111,10 @@ class _GestionCanchasScreenState extends ConsumerState<GestionCanchasScreen> {
       // Validar roles y resolver sede real desde idPersona
       final personaId = int.tryParse(auth.user?.personaId ?? '');
       if (personaId == null) {
-        Navigator.pushReplacementNamed(context, NewReservationScreen.routeName);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error: Usuario sin persona asociada')),
+        );
+        Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
         return;
       }
       // Usa repositorio unificado para validar Admin/Dueño
@@ -159,8 +161,15 @@ class _GestionCanchasScreenState extends ConsumerState<GestionCanchasScreen> {
         ref.read(_sedeProvider.notifier).state = sede;
       } catch (e) {
         if (!mounted) return;
-        // Sin sede: redirigir a creación
-        Navigator.pushReplacementNamed(context, NewReservationScreen.routeName);
+        // Sin sede: mostrar mensaje y redirigir a dashboard
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No tienes una sede registrada. Crea una sede primero.',
+            ),
+          ),
+        );
+        Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
       }
     });
   }

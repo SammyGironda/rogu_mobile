@@ -10,7 +10,6 @@ import 'src/presentation/screens/profile/user_profile_screen.dart';
 import 'src/presentation/screens/bookings/booking_form_screen.dart';
 import 'src/presentation/screens/bookings/booking_history_screen.dart';
 import 'src/presentation/screens/dashboard/denuncia_screen.dart';
-import 'src/presentation/screens/bookings/new_reservation_screen.dart';
 import 'src/presentation/screens/auth/login_screen.dart';
 import 'src/presentation/screens/auth/register_screen.dart';
 import 'src/presentation/screens/management/gestion_canchas_screen.dart';
@@ -54,8 +53,6 @@ class MyApp extends ConsumerWidget {
             const BookingHistoryScreen(),
         DenunciaScreen.routeName: (context) => const DenunciaScreen(),
         VenuesScreen.routeName: (context) => const VenuesScreen(),
-        NewReservationScreen.routeName: (context) =>
-            const NewReservationScreen(),
         LoginScreen.routeName: (context) => const LoginScreen(),
         RegisterScreen.routeName: (context) => const RegisterScreen(),
         GestionCanchasScreen.routeName: (context) {

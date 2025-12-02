@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../state/providers.dart';
 import '../screens/auth/login_screen.dart';
-import '../screens/bookings/new_reservation_screen.dart';
 
 /// Reusable BottomNavigationBar that maps fixed indices to named routes.
 class BottomNavBar extends ConsumerWidget {
@@ -49,9 +48,10 @@ class BottomNavBar extends ConsumerWidget {
           }
           final personaId = auth.user?.personaId;
           if (personaId == null) {
-            Navigator.pushReplacementNamed(
-              context,
-              NewReservationScreen.routeName,
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Error: Usuario sin persona asociada'),
+              ),
             );
             return;
           }
@@ -76,11 +76,9 @@ class BottomNavBar extends ConsumerWidget {
               return;
             }
 
-            // TODO: Verificar si tiene sede usando nueva API cuando esté disponible
-            // Por ahora, redirigir a crear sede
-            Navigator.pushReplacementNamed(
-              context,
-              NewReservationScreen.routeName,
+            // TODO: Implementar pantalla de gestión de sedes cuando esté disponible
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Funcionalidad en desarrollo')),
             );
           } catch (e) {
             if (!context.mounted) return;

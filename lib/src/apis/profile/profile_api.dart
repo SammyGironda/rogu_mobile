@@ -104,4 +104,14 @@ class ProfileApi {
       return false;
     }
   }
+
+  /// Obtener perfil completo (usuario + persona + roles)
+  Future<Map<String, dynamic>> getProfile() async {
+    final response = await _client.get('/profile');
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to get profile: ${response.body}');
+    }
+  }
 }

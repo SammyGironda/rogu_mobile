@@ -4,7 +4,9 @@ import '../../apis/profile/personas_api.dart';
 import '../../apis/auth/auth_api.dart';
 import '../models/persona.dart';
 import '../models/user.dart';
+import '../models/profile_data.dart';
 import '../../core/utils/storage_helper.dart';
+import '../../core/config/app_config.dart';
 
 /// Repository para perfil de usuario
 class ProfileRepository {
@@ -158,5 +160,135 @@ class ProfileRepository {
     } catch (e) {
       return {'isOwner': false, 'isAdmin': false};
     }
+  }
+
+  /// Obtener perfil completo y normalizado (usuario + persona + roles + avatar)
+  Future<ProfileData> fetchProfile() async {
+    final raw = await _profileApi.getProfile();
+    final usuario = (raw['usuario'] ?? raw) as Map<String, dynamic>;
+    final personaMap =
+        raw['persona'] ?? usuario['persona'] ?? raw['cliente']?['persona'];
+    final persona = personaMap != null
+        ? Persona.fromMap(Map<String, dynamic>.from(personaMap))
+        : null;
+
+    final roles = _extractRoles(usuario);
+    final String primaryRole = roles.isNotEmpty ? roles.first : 'CLIENTE';
+
+    final avatarPath = _toNullableString(
+      usuario['avatarPath'] ?? usuario['avatar_path'],
+    );
+    final avatarCandidate = _toNullableString(usuario['avatar']) ??
+        avatarPath ??
+        persona?.urlFoto;
+    final avatarUrl = _resolveAvatarUrl(avatarCandidate);
+
+    final bool correoVerificado = _toBool(
+      usuario['correoVerificado'] ?? usuario['correo_verificado'],
+    );
+    final bool telefonoVerificado = persona?.telefonoVerificado ?? false;
+
+    return ProfileData(
+      persona: persona,
+      roles: roles,
+      primaryRole: primaryRole,
+      avatarUrl: avatarUrl,
+      avatarPath: avatarPath,
+      correoVerificado: correoVerificado,
+      telefonoVerificado: telefonoVerificado,
+      personaId: persona?.idPersona,
+    );
+  }
+
+  List<String> _extractRoles(Map<String, dynamic> usuario) {
+    final rawRoles = usuario['roles'] ?? usuario['Roles'] ?? [];
+    if (rawRoles is! List) return const ['CLIENTE'];
+    final canonical = <String>{};
+    for (final r in rawRoles) {
+      final role = _canonicalizeRole(r?.toString() ?? '');
+      if (role != null) canonical.add(role);
+    }
+    return canonical.isEmpty ? const ['CLIENTE'] : canonical.toList();
+  }
+
+  String? _canonicalizeRole(String role) {
+    final normalized = role.trim().toUpperCase().replaceAll('Á', 'A').replaceAll('É', 'E')
+      .replaceAll('Í', 'I').replaceAll('Ó', 'O').replaceAll('Ú', 'U')
+      .replaceAll('Ü', 'U').replaceAll('Ñ', 'N');
+    switch (normalized) {
+      case 'CLIENTE':
+        return 'CLIENTE';
+      case 'DUENIO':
+      case 'DUENO':
+      case 'OWNER':
+      case 'PROPIETARIO':
+        return 'DUENIO';
+      case 'CONTROLADOR':
+      case 'CONTROL':
+        return 'CONTROLADOR';
+      case 'ADMIN':
+      case 'ADMINISTRADOR':
+        return 'ADMIN';
+      default:
+        return null;
+    }
+  }
+
+  String? _resolveAvatarUrl(String? candidate) {
+    if (candidate == null || candidate.isEmpty) return null;
+    final apiUri = Uri.parse(AppConfig.apiBaseUrl);
+    final origin = '${apiUri.scheme}://${apiUri.host}${apiUri.hasPort ? ':${apiUri.port}' : ''}';
+
+    if (candidate.startsWith('http')) {
+      final uri = Uri.tryParse(candidate);
+      if (uri != null) {
+        final bool isLocalHost =
+            uri.host == 'localhost' ||
+            uri.host == '127.0.0.1' ||
+            uri.host.startsWith('10.0.2.2');
+
+        // Corrige rutas que vienen como /avatars/.. para apuntar a /uploads/avatars
+        if (uri.path.startsWith('/avatars')) {
+          final fixed = uri.replace(
+            host: apiUri.host,
+            port: apiUri.port,
+            scheme: apiUri.scheme,
+            path: '/uploads${uri.path}',
+          );
+          return fixed.toString();
+        }
+
+        if (isLocalHost) {
+          final normalized = uri.replace(
+            host: apiUri.host,
+            port: apiUri.port,
+            scheme: apiUri.scheme,
+          );
+          return normalized.toString();
+        }
+        return uri.toString();
+      }
+      return candidate;
+    }
+    if (candidate.startsWith('/uploads')) return '$origin$candidate';
+    if (candidate.startsWith('/avatars')) return '$origin/uploads$candidate';
+    if (candidate.startsWith('/')) return '$origin$candidate';
+    return '$origin/$candidate';
+  }
+
+  String? _toNullableString(dynamic value) {
+    if (value == null) return null;
+    final s = value.toString().trim();
+    return s.isEmpty ? null : s;
+  }
+
+  bool _toBool(dynamic value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) {
+      final v = value.trim().toLowerCase();
+      return v == 'true' || v == '1' || v == 'si' || v == 'yes';
+    }
+    return false;
   }
 }

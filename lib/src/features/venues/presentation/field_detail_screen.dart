@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../data/models/field.dart';
 import '../../../data/models/venue.dart';
 import '../../../core/theme/app_theme.dart';
-import '../bookings/select_slot_screen.dart';
+import '../../../presentation/screens/bookings/select_slot_screen.dart';
 
 class FieldDetailScreen extends StatelessWidget {
   final Field field;
