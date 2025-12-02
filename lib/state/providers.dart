@@ -1,7 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/user.dart';
-import '../services/auth_service.dart';
-import '../services/profile_service.dart';
+import '../src/data/models/user.dart';
+import '../src/data/repositories/auth_repository.dart';
+import '../src/data/repositories/profile_repository.dart';
+import '../src/core/utils/storage_helper.dart';
 
 // Auth State
 class AuthState {
@@ -33,18 +34,18 @@ class AuthState {
 }
 
 class AuthNotifier extends StateNotifier<AuthState> {
-  final AuthService _authService;
+  final AuthRepository _authRepository;
 
-  AuthNotifier(this._authService) : super(AuthState()) {
+  AuthNotifier(this._authRepository) : super(AuthState()) {
     checkAuthStatus();
   }
 
   Future<void> checkAuthStatus() async {
     state = state.copyWith(isLoading: true);
-    final user = await _authService.getUser();
-    final token = await _authService.getToken();
+    final user = await _authRepository.getCurrentUser();
+    final isAuth = await _authRepository.isAuthenticated();
 
-    if (user != null && token != null) {
+    if (user != null && isAuth) {
       state = state.copyWith(
         isAuthenticated: true,
         isLoading: false,
@@ -64,40 +65,50 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<bool> login(String email, String password) async {
     state = state.copyWith(isLoading: true, error: null);
 
-    final result = await _authService.login(email, password);
+    try {
+      final user = await _authRepository.login(
+        email: email,
+        password: password,
+      );
 
-    if (result['success']) {
       state = state.copyWith(
         isAuthenticated: true,
         isLoading: false,
-        user: result['user'],
+        user: user,
         error: null,
       );
       return true;
-    } else {
+    } catch (e) {
       state = state.copyWith(
         isAuthenticated: false,
         isLoading: false,
-        error: result['message'],
+        error: e.toString(),
       );
       return false;
     }
   }
 
   Future<void> logout() async {
-    await _authService.logout();
+    await _authRepository.logout();
     state = state.copyWith(isAuthenticated: false, user: null, error: null);
+  }
+
+  // Método helper para obtener token
+  Future<String?> getToken() async {
+    return await StorageHelper.getToken();
   }
 }
 
-final authServiceProvider = Provider<AuthService>((ref) => AuthService());
+final authRepositoryProvider = Provider<AuthRepository>(
+  (ref) => AuthRepository(),
+);
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  final authService = ref.watch(authServiceProvider);
-  return AuthNotifier(authService);
+  final authRepository = ref.watch(authRepositoryProvider);
+  return AuthNotifier(authRepository);
 });
 
-// Profile service provider (para extracción y actualización de datos de persona/usuario)
-final profileServiceProvider = Provider<ProfileService>(
-  (ref) => ProfileService(),
+// Profile repository provider
+final profileRepositoryProvider = Provider<ProfileRepository>(
+  (ref) => ProfileRepository(),
 );

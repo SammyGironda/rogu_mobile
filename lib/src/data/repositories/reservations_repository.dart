@@ -1,0 +1,128 @@
+import '../../apis/bookings/reservations_api.dart';
+
+/// Repository para reservas
+class ReservationsRepository {
+  final ReservationsApi _reservationsApi;
+
+  ReservationsRepository({ReservationsApi? reservationsApi})
+    : _reservationsApi = reservationsApi ?? ReservationsApi();
+
+  /// Obtener reservas de una cancha para una fecha
+  Future<List<Map<String, dynamic>>> getFieldReservations({
+    required int idCancha,
+    required DateTime fecha,
+  }) async {
+    try {
+      final fechaStr = fecha.toIso8601String().split('T').first; // YYYY-MM-DD
+      final data = await _reservationsApi.getFieldReservations(
+        idCancha: idCancha,
+        fecha: fechaStr,
+      );
+      return data.cast<Map<String, dynamic>>();
+    } catch (e) {
+      throw Exception('Failed to get field reservations: $e');
+    }
+  }
+
+  /// Obtener reservas de un usuario
+  Future<List<Map<String, dynamic>>> getUserReservations(int idUsuario) async {
+    try {
+      final data = await _reservationsApi.getUserReservations(idUsuario);
+      return data.cast<Map<String, dynamic>>();
+    } catch (e) {
+      throw Exception('Failed to get user reservations: $e');
+    }
+  }
+
+  /// Crear reserva
+  Future<Map<String, dynamic>> createReservation({
+    required int idCliente,
+    required int idCancha,
+    required DateTime inicia,
+    required DateTime termina,
+    int cantidadPersonas = 2,
+    bool requiereAprobacion = false,
+    double montoBase = 0,
+    double montoExtra = 0,
+  }) async {
+    try {
+      final data = await _reservationsApi.createReservation(
+        idCliente: idCliente,
+        idCancha: idCancha,
+        iniciaEn: inicia.toIso8601String(),
+        terminaEn: termina.toIso8601String(),
+        cantidadPersonas: cantidadPersonas,
+        requiereAprobacion: requiereAprobacion,
+        montoBase: montoBase,
+        montoExtra: montoExtra,
+      );
+      return data;
+    } catch (e) {
+      throw Exception('Failed to create reservation: $e');
+    }
+  }
+
+  /// Cancelar reserva
+  Future<void> cancelReservation(int idReserva) async {
+    try {
+      await _reservationsApi.cancelReservation(idReserva);
+    } catch (e) {
+      throw Exception('Failed to cancel reservation: $e');
+    }
+  }
+
+  /// Obtener detalles de una reserva
+  Future<Map<String, dynamic>> getReservation(int idReserva) async {
+    try {
+      final data = await _reservationsApi.getReservation(idReserva);
+      return data;
+    } catch (e) {
+      throw Exception('Failed to get reservation: $e');
+    }
+  }
+
+  /// Construir slots de tiempo disponibles/ocupados
+  List<ReservationSlot> buildSlots(
+    List<Map<String, dynamic>> existing, {
+    int inicioHora = 6,
+    int finHora = 24,
+  }) {
+    final slots = <ReservationSlot>[];
+
+    bool overlap(String start, String end, String slotStart, String slotEnd) {
+      return (start.compareTo(slotEnd) < 0) && (end.compareTo(slotStart) > 0);
+    }
+
+    for (int h = inicioHora; h < finHora; h++) {
+      final start = _formatHour(h);
+      final end = _formatHour(h + 1);
+      final ocupado = existing.any(
+        (r) => overlap(
+          r['horaInicio'] as String,
+          r['horaFin'] as String,
+          start,
+          end,
+        ),
+      );
+      slots.add(
+        ReservationSlot(horaInicio: start, horaFin: end, ocupado: ocupado),
+      );
+    }
+    return slots;
+  }
+
+  String _formatHour(int hour) => hour.toString().padLeft(2, '0') + ':00:00';
+}
+
+/// Modelo para slots de reserva
+class ReservationSlot {
+  final String horaInicio; // HH:MM:SS
+  final String horaFin; // HH:MM:SS
+  final bool ocupado;
+
+  ReservationSlot({
+    required this.horaInicio,
+    required this.horaFin,
+    required this.ocupado,
+  });
+}

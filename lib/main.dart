@@ -1,25 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'theme/theme.dart';
-import 'config/app_config.dart';
-import 'screens/splash_screen.dart';
-import 'screens/dashboard_screen.dart';
-import 'screens/qr_scanner_screen.dart';
-import 'screens/user_profile_screen.dart';
-import 'screens/booking_form_screen.dart';
-import 'screens/booking_history_screen.dart';
-import 'screens/denuncia_screen.dart';
-import 'screens/courts_screen.dart';
-import 'screens/new_reservation_screen.dart';
-import 'screens/login_screen.dart';
-import 'screens/register_screen.dart';
-import 'screens/gestion_canchas_screen.dart';
+import 'src/core/theme/app_theme.dart';
+import 'src/core/config/app_config.dart';
+import 'src/presentation/screens/splash_screen.dart';
+import 'src/presentation/screens/dashboard/dashboard_screen.dart';
+import 'src/presentation/screens/qr/qr_scanner_screen.dart';
+import 'src/presentation/screens/profile/user_profile_screen.dart';
+import 'src/presentation/screens/bookings/booking_form_screen.dart';
+import 'src/presentation/screens/bookings/booking_history_screen.dart';
+import 'src/presentation/screens/dashboard/denuncia_screen.dart';
+import 'src/presentation/screens/bookings/new_reservation_screen.dart';
+import 'src/presentation/screens/auth/login_screen.dart';
+import 'src/presentation/screens/auth/register_screen.dart';
+import 'src/presentation/screens/management/gestion_canchas_screen.dart';
+import 'src/features/venues/presentation/venues_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Inicializa configuración (baseUrl, flags).
+  // Inicializa configuracion (baseUrl, flags).
   await AppConfig.init();
 
   runApp(const ProviderScope(child: MyApp()));
@@ -42,7 +42,7 @@ class MyApp extends ConsumerWidget {
           child: child ?? const SizedBox.shrink(),
         );
       },
-      // Cambiamos la pantalla inicial al Dashboard según solicitud.
+      // Cambiamos la pantalla inicial al Dashboard segun solicitud.
       initialRoute: DashboardScreen.routeName,
       routes: {
         SplashScreen.routeName: (context) => const SplashScreen(),
@@ -53,7 +53,7 @@ class MyApp extends ConsumerWidget {
         BookingHistoryScreen.routeName: (context) =>
             const BookingHistoryScreen(),
         DenunciaScreen.routeName: (context) => const DenunciaScreen(),
-        CourtsScreen.routeName: (context) => const CourtsScreen(),
+        VenuesScreen.routeName: (context) => const VenuesScreen(),
         NewReservationScreen.routeName: (context) =>
             const NewReservationScreen(),
         LoginScreen.routeName: (context) => const LoginScreen(),
@@ -64,7 +64,7 @@ class MyApp extends ConsumerWidget {
                   as Map<String, dynamic>;
           return GestionCanchasScreen(sedeArgs: args);
         },
-        // FieldDetailScreen y SelectSlotScreen usan MaterialPageRoute con argumentos dinámicos
+        // FieldDetailScreen y SelectSlotScreen usan MaterialPageRoute con argumentos dinamicos
       },
     );
   }
