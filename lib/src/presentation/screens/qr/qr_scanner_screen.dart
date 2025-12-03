@@ -1,40 +1,11 @@
+/*
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../widgets/bottom_nav.dart';
 import '../../widgets/app_drawer.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../state/providers.dart';
-import '../auth/login_screen.dart';
-
-// TODO: Reemplazar con modelos reales de la base de datos
-class Participant {
-  String id;
-  String name;
-  int? rating;
-
-  Participant({required this.id, required this.name, this.rating});
-}
-
-class Booking {
-  String id;
-  String representative;
-  String courtName;
-  String date;
-  String time;
-  String status;
-  List<Participant> participants;
-
-  Booking({
-    required this.id,
-    required this.representative,
-    required this.courtName,
-    required this.date,
-    required this.time,
-    required this.status,
-    required this.participants,
-  });
-}
+import '../../../data/models/reserva.dart' as model;
 
 class QRScannerScreen extends ConsumerStatefulWidget {
   static const String routeName = '/qr';
@@ -52,16 +23,33 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
   @override
   void initState() {
     super.initState();
-    // Auth guard: redirect to login if not authenticated
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final auth = ref.read(authProvider);
-      if (!auth.isAuthenticated) {
-        Navigator.pushReplacementNamed(context, LoginScreen.routeName);
-        return;
-      }
-    });
-    // TODO: Cargar reservas desde la base de datos
-    bookings = [];
+    // Cargar reservas (mock) para evitar pantalla vacía
+    bookings = [
+      Booking(
+        id: 'R-2001',
+        representative: 'Equipo Águilas',
+        courtName: 'Cancha Principal',
+        date: '2025-12-05',
+        time: '18:00',
+        status: 'aprobada',
+        participants: [
+          Participant(id: 'P1', name: 'Carlos'),
+          Participant(id: 'P2', name: 'Ana'),
+        ],
+      ),
+      Booking(
+        id: 'R-2002',
+        representative: 'Club Titanes',
+        courtName: 'Cancha 2',
+        date: '2025-12-06',
+        time: '19:30',
+        status: 'pendiente',
+        participants: [
+          Participant(id: 'P3', name: 'Luis'),
+          Participant(id: 'P4', name: 'María'),
+        ],
+      ),
+    ];
   }
 
   void _toggleExpanded(String bookingId) {
@@ -72,337 +60,428 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
 
   Future<void> _showScanDialog(BuildContext context, Booking booking) async {
     bool scanned = false;
-
-    await showDialog<void>(
+    late model.Reserva? currentReserva;
+    bool scanning = true;
+    final TextEditingController _qrController = TextEditingController();
+    final List<model.ScanResult> scanHistory = [];
       context: context,
       barrierDismissible: false,
       builder: (context) {
         return StatefulBuilder(
-          builder: (context, setStateDialog) {
-            return AlertDialog(
-              title: Text(
-                scanned ? 'Detalles de la Reserva' : 'Escanear Código QR',
-              ),
-              content: SizedBox(
-                width: 300,
-                child: scanned
-                    ? Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('ID: ${booking.id}'),
-                          const SizedBox(height: 8),
-                          Text('Cancha: ${booking.courtName}'),
-                          Text('Fecha: ${booking.date}'),
-                          Text('Hora: ${booking.time}'),
-                          const SizedBox(height: 8),
-                          Row(children: [Chip(label: Text(booking.status))]),
-                        ],
-                      )
-                    : Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.qr_code, size: 72),
-                          const SizedBox(height: 12),
-                          const Text(
-                            'Presiona iniciar para simular el escaneo.',
-                          ),
-                        ],
-                      ),
-              ),
-              actions: scanned
-                  ? [
-                      TextButton(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                        },
-                        child: const Text('Cerrar'),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          setStateDialog(() {
-                            scanned = false;
-                          });
-                        },
-                        child: const Text('Volver a escanear'),
-                      ),
-                      if (booking.status == 'aprobada')
-                        ElevatedButton(
-                          onPressed: () {
-                            // Simulate validation
-                            Navigator.of(context).pop();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Entrada validada correctamente'),
-                              ),
-                            );
-                          },
-                          child: const Text('Validar'),
-                        ),
-                    ]
-                  : [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('Cancelar'),
+                                ),
+    @override
+    void didChangeDependencies() {
+      super.didChangeDependencies();
+      final args = (ModalRoute.of(context)?.settings.arguments ?? {}) as Map<String, dynamic>;
+      currentReserva ??= args['reserva'] as model.Reserva?;
+    }
+
+    void _processScan(String qrCode) {
+      if (currentReserva == null || qrCode.trim().isEmpty) return;
+
+      final idx = currentReserva!.clientes.indexWhere((c) => c.qrCode == qrCode);
+      model.ScanResult result;
+      if (idx == -1) {
+        result = model.ScanResult(success: false, message: 'QR no pertenece a esta reserva', type: model.ScanType.error);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('QR no pertenece a esta reserva')));
+      } else {
+        final cliente = currentReserva!.clientes[idx];
+        if (cliente.escaneado) {
+          result = model.ScanResult(success: false, message: '${cliente.nombre} ya fue registrado', type: model.ScanType.warning, cliente: cliente);
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${cliente.nombre} ya fue registrado')));
+        } else {
+          final now = DateTime.now();
+          final hora = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+          final updated = List<model.Cliente>.from(currentReserva!.clientes);
+          updated[idx] = cliente.copyWith(escaneado: true, horaEscaneo: hora);
+          setState(() {
+            currentReserva = currentReserva!.copyWith(clientes: updated);
+          });
+          result = model.ScanResult(success: true, message: '✓ ${cliente.nombre} - Ingreso autorizado', type: model.ScanType.success, cliente: updated[idx]);
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ingreso autorizado: ${cliente.nombre}')));
+        }
+      }
+      setState(() {
+        scanHistory.insert(0, result);
+        _qrController.clear();
+      });
+    }
                       ),
                       ElevatedButton(
-                        onPressed: () async {
-                          // simulate scanning
-                          setStateDialog(() {
-                            // show a small loading state while simulating
-                          });
-                          await Future.delayed(
-                            const Duration(milliseconds: 800),
-                          );
-                          setStateDialog(() {
-                            scanned = true;
-                          });
+                        onPressed: () {
+                          // Si existe alguna reserva, usa la primera para demo; sino muestra diálogo básico
+                            title: const Text('Escaneo de QR'),
+                              ? bookings.first
+                              : Booking(
+                                  id: 'R-DEMO',
+                                  representative: 'Demo',
+                                  courtName: 'Cancha',
+                                  date: '2025-12-05',
+                                  time: '18:00',
+                                  status: 'pendiente',
+                                  participants: [],
+                                );
+                          _showScanDialog(context, demo);
                         },
                         child: const Text('Iniciar Escaneo'),
                       ),
                     ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Future<void> _showRatingDialog(
-    BuildContext context,
-    Booking booking,
-    Participant participant,
-  ) async {
-    int rating = participant.rating ?? 0;
-
-    await showDialog<void>(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setStateDialog) {
-            return AlertDialog(
-              title: Text('Calificar ${participant.name}'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('¿Cómo calificarías su participación?'),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(5, (index) {
-                      final starIndex = index + 1;
-                      return IconButton(
-                        icon: Icon(
-                          starIndex <= rating ? Icons.star : Icons.star_border,
-                          color: starIndex <= rating
-                              ? Colors.amber
-                              : Colors.grey,
-                        ),
-                        onPressed: () {
-                          setStateDialog(() {
-                            rating = starIndex;
-                          });
-                        },
-                      );
-                    }),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancelar'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      participant.rating = rating;
-                    });
-                    Navigator.of(context).pop();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Calificación de $rating estrellas guardada para ${participant.name}',
-                        ),
-                      ),
-                    );
-                  },
-                  child: const Text('Guardar'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildBookingCard(Booking booking) {
-    final isExpanded = _expanded[booking.id] ?? false;
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        booking.representative,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 8,
-                        children: [
-                          Text(
-                            booking.courtName,
-                            style: const TextStyle(color: Colors.grey),
-                          ),
-                          const Text('•', style: TextStyle(color: Colors.grey)),
-                          Text(
-                            booking.date,
-                            style: const TextStyle(color: Colors.grey),
-                          ),
-                          const Text('•', style: TextStyle(color: Colors.grey)),
-                          Text(
-                            booking.time,
-                            style: const TextStyle(color: Colors.grey),
-                          ),
-                          const Text('•', style: TextStyle(color: Colors.grey)),
-                          Chip(label: Text(booking.status)),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Action buttons
-                Column(
-                  children: [
-                    ElevatedButton(
-                      onPressed: () => _showScanDialog(context, booking),
-                      child: const Text('Escanear'),
-                    ),
-                    const SizedBox(height: 8),
-                    OutlinedButton(
-                      onPressed: () => _toggleExpanded(booking.id),
-                      child: Row(
-                        children: [
-                          Text(isExpanded ? 'Ocultar' : 'Detalles'),
-                          const SizedBox(width: 6),
-                          Icon(
-                            isExpanded ? Icons.expand_less : Icons.expand_more,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          // Expanded participants
-          AnimatedCrossFade(
-            firstChild: const SizedBox.shrink(),
-            secondChild: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                // Use app primary dark-blue for expanded background
-                color: AppColors.primary700,
-                border: const Border(top: BorderSide(color: Colors.black26)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Participantes (${booking.participants.length})',
-                    style: const TextStyle(color: Colors.white70),
-                  ),
-                  const SizedBox(height: 8),
-                  ...booking.participants.map(
-                    (p) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            backgroundColor: AppColors.primary600,
-                            child: Text(
-                              p.name.isNotEmpty ? p.name[0] : '?',
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  p.name,
-                                  style: const TextStyle(color: Colors.white),
-                                ),
-                                if (p.rating != null)
-                                  Row(
-                                    children: List.generate(
-                                      p.rating!,
-                                      (i) => const Icon(
-                                        Icons.star,
-                                        size: 16,
-                                        color: Colors.amber,
+                            child: SingleChildScrollView(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Counters card
+                                  Card(
+                                    color: AppColors.card,
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(16.0),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Container(
+                                                width: 56,
+                                                height: 56,
+                                                decoration: const BoxDecoration(
+                                                  color: AppColors.primary500,
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: const Icon(Icons.group, color: AppColors.primaryForeground),
+                                              ),
+                                              const SizedBox(width: 12),
+                                              Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  const Text('Personas pendientes', style: TextStyle(color: AppColors.mutedForeground)),
+                                                  Row(
+                                                    children: [
+                                                      Text(
+                                                        ((currentReserva?.totalPersonas ?? 0) - (currentReserva?.clientes.where((c) => c.escaneado).length ?? 0)).toString(),
+                                                        style: const TextStyle(fontSize: 24),
+                                                      ),
+                                                      const SizedBox(width: 6),
+                                                      Text('de ${currentReserva?.totalPersonas ?? 0}', style: const TextStyle(color: AppColors.mutedForeground)),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                          Column(
+                                            crossAxisAlignment: CrossAxisAlignment.end,
+                                            children: [
+                                              const Text('Escaneados', style: TextStyle(color: AppColors.mutedForeground)),
+                                              Text(
+                                                '${currentReserva?.clientes.where((c) => c.escaneado).length ?? 0}',
+                                                style: const TextStyle(fontSize: 24, color: AppColors.secondary),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ),
-                              ],
-                            ),
-                          ),
-                          ElevatedButton(
-                            onPressed: () =>
-                                _showRatingDialog(context, booking, p),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors
-                                  .primary500, // app primary for contrast
+                                  const SizedBox(height: 12),
+                                  // Progress bar
+                                  Container(
+                                    width: double.infinity,
+                                    height: 12,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.muted,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: FractionallySizedBox(
+                                        widthFactor: (currentReserva == null || (currentReserva!.totalPersonas == 0))
+                                            ? 0
+                                            : (currentReserva!.clientes.where((c) => c.escaneado).length / currentReserva!.totalPersonas),
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            gradient: const LinearGradient(colors: [AppColors.primary500, AppColors.secondary]),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  // Camera viewer (simulated)
+                                  Card(
+                                    color: AppColors.card,
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(16.0),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              const Text('Visor de Cámara'),
+                                              Chip(
+                                                label: Text(scanning ? 'Activo' : 'Detenido'),
+                                                backgroundColor: scanning ? AppColors.success : AppColors.muted,
+                                                labelStyle: TextStyle(color: scanning ? AppColors.successForeground : AppColors.foreground),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 12),
+                                          Container(
+                                            height: 200,
+                                            decoration: BoxDecoration(
+                                              gradient: const LinearGradient(colors: [Color(0xFF0B0B0E), Color(0xFF121217)]),
+                                              borderRadius: BorderRadius.circular(12),
+                                              border: Border.all(color: AppColors.border),
+                                            ),
+                                            child: const Center(
+                                              child: Icon(Icons.camera_alt, size: 40, color: Color(0xFF6B7280)),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 12),
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: TextField(
+                                                  controller: _qrController,
+                                                  enabled: scanning,
+                                                  decoration: const InputDecoration(
+                                                    hintText: 'Ingresa el código QR manualmente...',
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              ElevatedButton(
+                                                onPressed: (!scanning || _qrController.text.trim().isEmpty)
+                                                    ? null
+                                                    : () => _processScan(_qrController.text),
+                                                child: const Text('Escanear'),
+                                              ),
+                                            ],
+                                          ),
+                                          if (currentReserva?.clientes.isNotEmpty ?? false)
+                                            Padding(
+                                              padding: const EdgeInsets.only(top: 6.0),
+                                              child: Text(
+                                                'Ejemplo: ${currentReserva!.clientes.first.qrCode}',
+                                                style: const TextStyle(color: AppColors.mutedForeground, fontSize: 12),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  // Scan history
+                                  if (scanHistory.isNotEmpty)
+                                    Card(
+                                      color: AppColors.card,
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(16.0),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            const Text('Historial de Escaneos'),
+                                            const SizedBox(height: 8),
+                                            ...scanHistory.map((r) {
+                                              Color bg;
+                                              Color border;
+                                              switch (r.type) {
+                                                case model.ScanType.success:
+                                                  bg = const Color(0xFF062615);
+                                                  border = const Color(0xFF1C6B3C);
+                                                  break;
+                                                case model.ScanType.warning:
+                                                  bg = const Color(0xFF3A2A00);
+                                                  border = const Color(0xFF8A5E00);
+                                                  break;
+                                                case model.ScanType.error:
+                                                  bg = const Color(0xFF2C0A0A);
+                                                  border = const Color(0xFF7A2020);
+                                                  break;
+                                              }
+                                              return Container(
+                                                margin: const EdgeInsets.symmetric(vertical: 4),
+                                                padding: const EdgeInsets.all(12),
+                                                decoration: BoxDecoration(
+                                                  color: bg,
+                                                  border: Border.all(color: border),
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                                child: Row(
+                                                  children: [
+                                                    Expanded(child: Text(r.message)),
+                                                    if (r.cliente?.horaEscaneo != null)
+                                                      Text(
+                                                        r.cliente!.horaEscaneo!,
+                                                        style: const TextStyle(color: AppColors.mutedForeground, fontSize: 12),
+                                                      ),
+                                                  ],
+                                                ),
+                                              );
+                                            }).toList(),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  const SizedBox(height: 16),
+                                  // Pending clients quick simulate
+                                  Card(
+                                    color: AppColors.card,
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(16.0),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text('Clientes Pendientes (Click para simular)'),
+                                          const SizedBox(height: 8),
+                                          ...((currentReserva?.clientes ?? const <model.Cliente>[])
+                                              .where((c) => !c.escaneado)
+                                              .map((c) => InkWell(
+                                                    onTap: scanning ? () => _processScan(c.qrCode) : null,
+                                                    child: Container(
+                                                      margin: const EdgeInsets.symmetric(vertical: 6),
+                                                      padding: const EdgeInsets.all(12),
+                                                      decoration: BoxDecoration(
+                                                        border: Border.all(color: AppColors.border),
+                                                        borderRadius: BorderRadius.circular(8),
+                                                      ),
+                                                      child: Row(
+                                                        children: [
+                                                          Container(
+                                                            width: 40,
+                                                            height: 40,
+                                                            decoration: BoxDecoration(
+                                                              color: AppColors.muted,
+                                                              borderRadius: BorderRadius.circular(20),
+                                                            ),
+                                                            child: const Icon(Icons.qr_code, color: AppColors.mutedForeground),
+                                                          ),
+                                                          const SizedBox(width: 12),
+                                                          Expanded(
+                                                            child: Column(
+                                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                                              children: [
+                                                                Text(c.nombre),
+                                                                Text('QR: ${c.qrCode}', style: const TextStyle(color: AppColors.mutedForeground, fontSize: 12)),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ))
+                                              .toList()),
+                                          if ((currentReserva?.clientes.where((c) => !c.escaneado).length ?? 0) == 0)
+                                            const Padding(
+                                              padding: EdgeInsets.symmetric(vertical: 24),
+                                              child: Center(
+                                                child: Text('¡Todos los clientes han sido escaneados!'),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  // Action buttons
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: OutlinedButton(
+                                          onPressed: () => setState(() => scanning = !scanning),
+                                          child: Text(scanning ? 'Detener Escaneo' : 'Reanudar Escaneo'),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: ElevatedButton(
+                                          onPressed: () => Navigator.pop(context, currentReserva),
+                                          style: ElevatedButton.styleFrom(backgroundColor: AppColors.secondary, foregroundColor: AppColors.secondaryForeground),
+                                          child: const Text('Finalizar Ingreso'),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
                             child: const Text('Calificar'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            crossFadeState: isExpanded
-                ? CrossFadeState.showSecond
-                : CrossFadeState.showFirst,
-            duration: const Duration(milliseconds: 250),
-          ),
-        ],
-      ),
-    );
+*/
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../widgets/bottom_nav.dart';
+import '../../widgets/app_drawer.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../data/models/reserva.dart' as model;
+
+class QRScannerScreen extends ConsumerStatefulWidget {
+  static const String routeName = '/qr';
+  const QRScannerScreen({super.key});
+  @override
+  ConsumerState<QRScannerScreen> createState() => _QRScannerScreenState();
+}
+
+class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
+  model.Reserva? currentReserva;
+  bool scanning = true;
+  final TextEditingController _qrController = TextEditingController();
+  final List<model.ScanResult> scanHistory = [];
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final rawArgs = ModalRoute.of(context)?.settings.arguments;
+    if (rawArgs is Map) {
+      final args = Map<String, dynamic>.from(rawArgs);
+      currentReserva ??= args['reserva'] as model.Reserva?;
+    }
+  }
+
+  void _processScan(String qrCode) {
+    if (currentReserva == null || qrCode.trim().isEmpty) return;
+
+    final idx = currentReserva!.clientes.indexWhere((c) => c.qrCode == qrCode);
+    model.ScanResult result;
+    if (idx == -1) {
+      result = model.ScanResult(success: false, message: 'QR no pertenece a esta reserva', type: model.ScanType.error);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('QR no pertenece a esta reserva')));
+    } else {
+      final cliente = currentReserva!.clientes[idx];
+      if (cliente.escaneado) {
+        result = model.ScanResult(success: false, message: '${cliente.nombre} ya fue registrado', type: model.ScanType.warning, cliente: cliente);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${cliente.nombre} ya fue registrado')));
+      } else {
+        final now = DateTime.now();
+        final hora = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+        final updated = List<model.Cliente>.from(currentReserva!.clientes);
+        updated[idx] = cliente.copyWith(escaneado: true, horaEscaneo: hora);
+        setState(() {
+          currentReserva = currentReserva!.copyWith(clientes: updated);
+        });
+        result = model.ScanResult(success: true, message: '✓ ${cliente.nombre} - Ingreso autorizado', type: model.ScanType.success, cliente: updated[idx]);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ingreso autorizado: ${cliente.nombre}')));
+      }
+    }
+    setState(() {
+      scanHistory.insert(0, result);
+      _qrController.clear();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Escanear QR'),
+        title: const Text('Escaneo de QR'),
         leading: Builder(
           builder: (ctx) {
             final theme = Theme.of(context);
             final bool isDark = theme.brightness == Brightness.dark;
-            final Color iconColor = isDark
-                ? Colors.white
-                : AppColors.neutral700;
+            final Color iconColor = isDark ? AppColors.foreground : AppColors.foreground;
             return IconButton(
               icon: Icon(Icons.menu, color: iconColor),
               onPressed: () => Scaffold.of(ctx).openDrawer(),
@@ -413,53 +492,280 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
       drawer: const AppDrawer(),
       bottomNavigationBar: const BottomNavBar(),
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Text(
-                'Bienvenido controlador',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-            ),
-            Expanded(
-              child: bookings.isEmpty
-                  ? const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(24.0),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.qr_code_scanner,
-                              size: 80,
-                              color: Colors.grey,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Card(
+                color: AppColors.card,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 56,
+                            height: 56,
+                            decoration: const BoxDecoration(
+                              color: AppColors.primary500,
+                              shape: BoxShape.circle,
                             ),
-                            SizedBox(height: 16),
-                            Text(
-                              'No hay reservas disponibles',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
+                            child: const Icon(Icons.group, color: AppColors.primaryForeground),
+                          ),
+                          const SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Personas pendientes', style: TextStyle(color: AppColors.mutedForeground)),
+                              Row(
+                                children: [
+                                  Text(
+                                    ((currentReserva?.totalPersonas ?? 0) - (currentReserva?.clientes.where((c) => c.escaneado).length ?? 0)).toString(),
+                                    style: const TextStyle(fontSize: 24),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text('de ${currentReserva?.totalPersonas ?? 0}', style: const TextStyle(color: AppColors.mutedForeground)),
+                                ],
                               ),
-                            ),
-                            SizedBox(height: 8),
-                            Text(
-                              'Las reservas aprobadas aparecerán aquí',
-                              style: TextStyle(color: Colors.grey),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
+                            ],
+                          ),
+                        ],
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          const Text('Escaneados', style: TextStyle(color: AppColors.mutedForeground)),
+                          Text(
+                            '${currentReserva?.clientes.where((c) => c.escaneado).length ?? 0}',
+                            style: const TextStyle(fontSize: 24, color: AppColors.secondary),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: AppColors.muted,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: FractionallySizedBox(
+                    widthFactor: (currentReserva == null || (currentReserva!.totalPersonas == 0))
+                        ? 0
+                        : (currentReserva!.clientes.where((c) => c.escaneado).length / currentReserva!.totalPersonas),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(colors: [AppColors.primary500, AppColors.secondary]),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Card(
+                color: AppColors.card,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Visor de Cámara'),
+                          Chip(
+                            label: Text(scanning ? 'Activo' : 'Detenido'),
+                            backgroundColor: scanning ? AppColors.success : AppColors.muted,
+                            labelStyle: TextStyle(color: scanning ? AppColors.successForeground : AppColors.foreground),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        height: 200,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(colors: [Color(0xFF0B0B0E), Color(0xFF121217)]),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: const Center(
+                          child: Icon(Icons.camera_alt, size: 40, color: Color(0xFF6B7280)),
                         ),
                       ),
-                    )
-                  : ListView(
-                      padding: const EdgeInsets.only(bottom: 16, top: 4),
-                      children: bookings.map(_buildBookingCard).toList(),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _qrController,
+                              enabled: scanning,
+                              decoration: const InputDecoration(
+                                hintText: 'Ingresa el código QR manualmente...',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: (!scanning || _qrController.text.trim().isEmpty)
+                                ? null
+                                : () => _processScan(_qrController.text),
+                            child: const Text('Escanear'),
+                          ),
+                        ],
+                      ),
+                      if (currentReserva?.clientes.isNotEmpty ?? false)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6.0),
+                          child: Text(
+                            'Ejemplo: ${currentReserva!.clientes.first.qrCode}',
+                            style: const TextStyle(color: AppColors.mutedForeground, fontSize: 12),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (scanHistory.isNotEmpty)
+                Card(
+                  color: AppColors.card,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Historial de Escaneos'),
+                        const SizedBox(height: 8),
+                        ...scanHistory.map((r) {
+                          Color bg;
+                          Color border;
+                          switch (r.type) {
+                            case model.ScanType.success:
+                              bg = const Color(0xFF062615);
+                              border = const Color(0xFF1C6B3C);
+                              break;
+                            case model.ScanType.warning:
+                              bg = const Color(0xFF3A2A00);
+                              border = const Color(0xFF8A5E00);
+                              break;
+                            case model.ScanType.error:
+                              bg = const Color(0xFF2C0A0A);
+                              border = const Color(0xFF7A2020);
+                              break;
+                          }
+                          return Container(
+                            margin: const EdgeInsets.symmetric(vertical: 4),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: bg,
+                              border: Border.all(color: border),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(child: Text(r.message)),
+                                if (r.cliente?.horaEscaneo != null)
+                                  Text(
+                                    r.cliente!.horaEscaneo!,
+                                    style: const TextStyle(color: AppColors.mutedForeground, fontSize: 12),
+                                  ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ],
                     ),
-            ),
-          ],
+                  ),
+                ),
+              const SizedBox(height: 16),
+              Card(
+                color: AppColors.card,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Clientes Pendientes (Click para simular)'),
+                      const SizedBox(height: 8),
+                      ...((currentReserva?.clientes ?? const <model.Cliente>[])
+                          .where((c) => !c.escaneado)
+                          .map((c) => InkWell(
+                                onTap: scanning ? () => _processScan(c.qrCode) : null,
+                                child: Container(
+                                  margin: const EdgeInsets.symmetric(vertical: 6),
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: AppColors.border),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 40,
+                                        height: 40,
+                                        decoration: BoxDecoration(
+                                          color: AppColors.muted,
+                                          borderRadius: BorderRadius.circular(20),
+                                        ),
+                                        child: const Icon(Icons.qr_code, color: AppColors.mutedForeground),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(c.nombre),
+                                            Text('QR: ${c.qrCode}', style: const TextStyle(color: AppColors.mutedForeground, fontSize: 12)),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ))
+                          .toList()),
+                      if ((currentReserva?.clientes.where((c) => !c.escaneado).length ?? 0) == 0)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 24),
+                          child: Center(
+                            child: Text('¡Todos los clientes han sido escaneados!'),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => setState(() => scanning = !scanning),
+                      child: Text(scanning ? 'Detener Escaneo' : 'Reanudar Escaneo'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context, currentReserva),
+                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.secondary, foregroundColor: AppColors.secondaryForeground),
+                      child: const Text('Finalizar Ingreso'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

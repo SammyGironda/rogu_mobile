@@ -6,6 +6,8 @@ import 'src/core/config/app_config.dart';
 import 'src/presentation/screens/splash_screen.dart';
 import 'src/presentation/screens/dashboard/dashboard_screen.dart';
 import 'src/presentation/screens/qr/qr_scanner_screen.dart';
+import 'src/presentation/screens/bookings/pending_reservations_screen.dart';
+import 'src/presentation/screens/bookings/reservation_detail_screen.dart';
 import 'src/presentation/screens/profile/user_profile_screen.dart';
 import 'src/presentation/screens/bookings/booking_form_screen.dart';
 import 'src/presentation/screens/bookings/booking_history_screen.dart';
@@ -42,11 +44,13 @@ class MyApp extends ConsumerWidget {
           child: child ?? const SizedBox.shrink(),
         );
       },
-      // Cambiamos la pantalla inicial al Dashboard segun solicitud.
+      // Pantalla inicial: Dashboard
       initialRoute: DashboardScreen.routeName,
       routes: {
         SplashScreen.routeName: (context) => const SplashScreen(),
         DashboardScreen.routeName: (context) => const DashboardScreen(),
+        PendingReservationsScreen.routeName: (context) => const PendingReservationsScreen(),
+        ReservationDetailScreen.routeName: (context) => const ReservationDetailScreen(),
         QRScannerScreen.routeName: (context) => const QRScannerScreen(),
         UserProfileScreen.routeName: (context) => const UserProfileScreen(),
         BookingFormScreen.routeName: (context) => const BookingFormScreen(),

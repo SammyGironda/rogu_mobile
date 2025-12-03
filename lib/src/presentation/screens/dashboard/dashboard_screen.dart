@@ -68,10 +68,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     'ROGÜ',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                   ),
-                  Text(
-                    'Reserva tu cancha favorita',
-                    style: TextStyle(fontSize: 11, color: Colors.grey),
-                  ),
                 ],
               ),
               const Spacer(),

@@ -16,7 +16,7 @@ class BottomNavBar extends ConsumerWidget {
     '/dashboard',
     '/booking_history',
     '/new-reservation',
-    '/qr',
+    '/reservas/pendientes',
     '/profile',
   ];
 
