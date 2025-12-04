@@ -15,7 +15,10 @@ final _historyProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>(
     final authState = ref.watch(authProvider);
     if (authState.user == null) return [];
     final reservationsRepo = ReservationsRepository();
-    return reservationsRepo.getUserReservations(int.parse(authState.user!.id));
+    final user = authState.user!;
+    final personaId = int.tryParse(user.personaId ?? '');
+    final idConsulta = personaId ?? int.parse(user.id);
+    return reservationsRepo.getUserReservations(idConsulta);
   },
 );
 
@@ -97,7 +100,13 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen> {
           error: (e, _) => Center(child: Text('Error: $e')),
           data: (reservas) {
             final bookings = reservas.map(_mapBooking).toList();
-            bookings.sort((a, b) => b.startDate.compareTo(a.startDate));
+            // Ordenar por fecha de creación/pago (más reciente primero)
+            bookings.sort((a, b) {
+              if (a.createdAt == null && b.createdAt == null) return 0;
+              if (a.createdAt == null) return 1;
+              if (b.createdAt == null) return -1;
+              return b.createdAt!.compareTo(a.createdAt!);
+            });
             final filtered = bookings.where(_filterBooking).toList();
 
             return RefreshIndicator(
@@ -167,15 +176,6 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen> {
     final cancha = r['cancha'] as Map<String, dynamic>? ?? {};
     final sede = cancha['sede'] as Map<String, dynamic>? ?? {};
     final estadoRaw = (r['estado'] ?? '').toString().toUpperCase();
-
-    // Debug completo
-    print('═══════════════════════════════════════');
-    print('📋 RESERVA ${r['idReserva']}');
-    print('Estado raw: "$estadoRaw"');
-    print('completadaEn raw: ${r['completadaEn']}');
-    print('completadaEn tipo: ${r['completadaEn'].runtimeType}');
-    print('Cancha: ${cancha['nombre']}');
-    print('═══════════════════════════════════════');
 
     // Verificar completadaEn de forma más robusta
     final completadaEnRaw = r['completadaEn'];
@@ -440,13 +440,21 @@ class _BookingCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Status + sport pill
+            // Foto de cancha o icono
             Container(
               width: 70,
               height: 70,
               decoration: BoxDecoration(
-                color: AppColors.neutral900,
+                color: booking.image != null
+                    ? Colors.transparent
+                    : AppColors.neutral900,
                 borderRadius: BorderRadius.circular(14),
+                image: booking.image != null
+                    ? DecorationImage(
+                        image: NetworkImage(booking.image!),
+                        fit: BoxFit.cover,
+                      )
+                    : null,
               ),
               child: Stack(
                 children: [
@@ -567,7 +575,7 @@ class _BookingCard extends StatelessWidget {
                         size: 14,
                         color: AppColors.neutral500,
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 6),
                       Text(
                         '${booking.participants} pers.',
                         style: const TextStyle(
@@ -577,6 +585,30 @@ class _BookingCard extends StatelessWidget {
                       ),
                     ],
                   ),
+                  if (booking.createdAt != null) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.receipt_long,
+                          size: 14,
+                          color: AppColors.neutral500,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Pagado: ${_formatCreatedAt(booking.createdAt!)}',
+                            style: const TextStyle(
+                              color: AppColors.neutral500,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -630,6 +662,15 @@ class _BookingCard extends StatelessWidget {
       'diciembre',
     ];
     return months[(m - 1).clamp(0, 11)];
+  }
+
+  String _formatCreatedAt(DateTime dt) {
+    final day = dt.day.toString().padLeft(2, '0');
+    final month = dt.month.toString().padLeft(2, '0');
+    final year = dt.year.toString().substring(2);
+    final hour = dt.hour.toString().padLeft(2, '0');
+    final minute = dt.minute.toString().padLeft(2, '0');
+    return '$day/$month/$year $hour:$minute';
   }
 }
 

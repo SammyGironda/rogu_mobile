@@ -118,6 +118,8 @@ class BookingFormRepository {
 	Future<List<Venue>> fetchVenues() async =>
 			_venuesRepository.getVenuesInicio();
 
+	Future<Venue> fetchVenue(int id) async => _venuesRepository.getVenue(id);
+
 	Future<List<Field>> fetchFields(int venueId) async =>
 			_venuesRepository.getVenueFields(venueId);
 
@@ -363,14 +365,26 @@ class BookingFormController extends StateNotifier<BookingFormState> {
 			clearError: true,
 		);
 		try {
-			final venues = await _repository.fetchVenues();
-			final selectedVenueId = initialVenueId != null &&
-					venues.any((v) => v.id == initialVenueId)
-				? initialVenueId
-				: (venues.isNotEmpty ? venues.first.id : null);
+			List<Venue> venues = await _repository.fetchVenues();
+			// Si venimos desde el detalle y la sede no estÃ¡ en el listado inicial,
+			// la agregamos para evitar que se seleccione otra por defecto.
+			if (initialVenueId != null &&
+					venues.every((v) => v.id != initialVenueId)) {
+				try {
+					final venue = await _repository.fetchVenue(initialVenueId);
+					venues = [venue, ...venues];
+				} catch (_) {
+					// Si falla, continuamos con el listado actual.
+				}
+			}
+
+			final selectedVenueId =
+					initialVenueId ?? (venues.isNotEmpty ? venues.first.id : null);
+
 			final fields = selectedVenueId != null
 					? await _repository.fetchFields(selectedVenueId)
 					: <Field>[];
+
 			final selectedFieldId = initialFieldId != null &&
 					fields.any((f) => f.id == initialFieldId)
 				? initialFieldId
