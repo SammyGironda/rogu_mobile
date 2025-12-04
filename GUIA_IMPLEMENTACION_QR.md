@@ -1,106 +1,1525 @@
-# 📱 Sistema de Escaneo QR - ROGU Mobile
+# 📱 Guía de Implementación: Sistema de Escaneo QR
 
-## ✅ Implementación Completada
-
-Esta guía documenta el sistema de escaneo QR implementado en el proyecto ROGU Mobile, adaptado a la arquitectura existente.
+Esta guía te ayudará a replicar la funcionalidad de escaneo QR en otro proyecto Flutter, manteniendo la misma lógica y base de datos.
 
 ---
 
-## 📁 Estructura Implementada
-
-```
-lib/src/
-├── data/
-│   ├── models/
-│   │   └── reserva.dart                    ✅ NUEVO - Modelos Reserva, Cliente, ScanResult
-│   └── repositories/
-│       └── qr_repository.dart              ✅ ACTUALIZADO - Métodos de escaneo
-├── apis/
-│   └── qr/
-│       └── qr_api.dart                     ✅ ACTUALIZADO - Endpoints completos
-└── presentation/
-    └── screens/
-        └── qr/
-            └── qr_scanner_screen.dart      ✅ ACTUALIZADO - Pantalla completa
-```
+## 📋 Tabla de Contenidos
+1. [Dependencias necesarias](#dependencias-necesarias)
+2. [Estructura de archivos](#estructura-de-archivos)
+3. [Modelos de datos](#modelos-de-datos)
+4. [Servicios API](#servicios-api)
+5. [Pantalla de escaneo](#pantalla-de-escaneo)
+6. [Integración con navegación](#integración-con-navegación)
+7. [Flujo completo](#flujo-completo)
 
 ---
 
-## 🎯 Archivos Modificados
+## 1️⃣ Dependencias Necesarias
 
-### 1. `pubspec.yaml`
+### `pubspec.yaml`
 ```yaml
 dependencies:
-  mobile_scanner: ^4.0.0  # ✅ Agregado para escaneo QR
+  flutter:
+    sdk: flutter
+  
+  # Para escaneo de QR
+  mobile_scanner: ^4.0.0
+  
+  # Para peticiones HTTP
+  http: ^1.1.0
+  
+  # Para manejo de estado (opcional, puedes usar Provider u otro)
+  flutter_riverpod: ^2.4.0
 ```
 
-### 2. `lib/src/data/models/reserva.dart` ✅ NUEVO
-Modelos principales:
-- **`Cliente`**: Representa a una persona que escanea su QR
-- **`Reserva`**: Información completa de la reserva con lista de clientes
-- **`ScanResult`**: Resultado del proceso de escaneo
-- **`ScanType`**: Enum para tipos de escaneo (success, warning, error)
-
-### 3. `lib/src/apis/qr/qr_api.dart` ✅ ACTUALIZADO
-Nuevos métodos agregados:
-- `ensureTrabaja()` - Registra operador en sede
-- `crearControla()` - Crea registro de auditoría
-- `finalizarPaseAccesoUsos()` - Actualiza estado del pase
-
-### 4. `lib/src/data/repositories/qr_repository.dart` ✅ ACTUALIZADO
-Métodos agregados para encapsular la lógica de negocio:
-- `ensureTrabaja()`
-- `crearControla()`
-- `finalizarPaseAccesoUsos()`
-
-### 5. `lib/src/presentation/screens/qr/qr_scanner_screen.dart` ✅ REEMPLAZADO
-Implementación completa con:
-- Escaneo con cámara usando `mobile_scanner`
-- Entrada manual de códigos QR
-- Control de escaneos duplicados
-- Historial visual de escaneos
-- Barra de progreso
-- Validaciones en tiempo real
-
-### 6. `android/app/src/main/AndroidManifest.xml` ✅ ACTUALIZADO
-```xml
-<uses-permission android:name="android.permission.CAMERA" />
-```
-
-### 7. `ios/Runner/Info.plist` ✅ ACTUALIZADO
-```xml
-<key>NSCameraUsageDescription</key>
-<string>Necesitamos acceso a la cámara para escanear códigos QR de las reservas</string>
+**Instalar:**
+```bash
+flutter pub get
 ```
 
 ---
 
-## 🚀 Cómo Usar
+## 2️⃣ Estructura de Archivos
 
-### Navegación a la Pantalla de Escaneo
+Crea esta estructura en tu proyecto:
 
-Desde cualquier parte de tu app, navega con los argumentos necesarios:
+```
+lib/
+├── models/
+│   └── reserva.dart              # Modelos de Reserva, Cliente, ScanResult
+├── services/
+│   └── qr_api_service.dart       # Servicio para APIs de QR
+├── apis/
+│   └── qr/
+│       └── qr_api.dart           # API endpoints (alternativa moderna)
+├── repositories/
+│   └── qr_repository.dart        # Capa de abstracción de datos
+└── screens/
+    ├── pending_reservations_screen.dart  # ⭐ Lista de reservas pendientes
+    ├── reservation_detail_screen.dart    # ⭐ Detalle de una reserva
+    └── qr_scanner_screen.dart            # Pantalla principal de escaneo
+```
+
+---
+
+## 3️⃣ Modelos de Datos
+
+### `lib/models/reserva.dart`
 
 ```dart
+// Modelo Cliente (persona que escanea)
+class Cliente {
+  final String id;              // ⭐ ID único del cliente
+  final String nombre;
+  final String documento;       // ⭐ Documento de identidad
+  final String qrCode;
+  final bool escaneado;
+  final String? horaEscaneo;
+
+  Cliente({
+    required this.id,
+    required this.nombre,
+    required this.documento,
+    required this.qrCode,
+    this.escaneado = false,
+    this.horaEscaneo,
+  });
+
+  Cliente copyWith({
+    String? id,
+    String? nombre,
+    String? documento,
+    String? qrCode,
+    bool? escaneado,
+    String? horaEscaneo,
+  }) {
+    return Cliente(
+      id: id ?? this.id,
+      nombre: nombre ?? this.nombre,
+      documento: documento ?? this.documento,
+      qrCode: qrCode ?? this.qrCode,
+      escaneado: escaneado ?? this.escaneado,
+      horaEscaneo: horaEscaneo ?? this.horaEscaneo,
+    );
+  }
+
+  factory Cliente.fromJson(Map<String, dynamic> json) {
+    return Cliente(
+      id: json['id']?.toString() ?? '',
+      nombre: json['nombre'] ?? '',
+      documento: json['documento'] ?? '',
+      qrCode: json['qrCode'] ?? '',
+      escaneado: json['escaneado'] ?? false,
+      horaEscaneo: json['horaEscaneo'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'nombre': nombre,
+      'documento': documento,
+      'qrCode': qrCode,
+      'escaneado': escaneado,
+      'horaEscaneo': horaEscaneo,
+    };
+  }
+}
+
+// Modelo Reserva
+class Reserva {
+  final String id;
+  final String nombreReserva;      // ⭐ Nombre descriptivo de la reserva
+  final String fecha;               // Formato ISO: yyyy-MM-dd
+  final String hora;                // Formato: HH:mm
+  final String cancha;              // ⭐ Nombre de la cancha
+  final int? sedeId;                // ⭐ ID de la sede (opcional)
+  final List<Cliente> clientes;
+  final String estado;              // ⭐ 'pendiente' | 'en_proceso' | 'completada'
+  final int totalPersonas;
+
+  const Reserva({
+    required this.id,
+    required this.nombreReserva,
+    required this.fecha,
+    required this.hora,
+    required this.cancha,
+    this.sedeId,
+    required this.clientes,
+    required this.estado,
+    required this.totalPersonas,
+  });
+
+  Reserva copyWith({
+    String? id,
+    String? nombreReserva,
+    String? fecha,
+    String? hora,
+    String? cancha,
+    int? sedeId,
+    List<Cliente>? clientes,
+    String? estado,
+    int? totalPersonas,
+  }) {
+    return Reserva(
+      id: id ?? this.id,
+      nombreReserva: nombreReserva ?? this.nombreReserva,
+      fecha: fecha ?? this.fecha,
+      hora: hora ?? this.hora,
+      cancha: cancha ?? this.cancha,
+      sedeId: sedeId ?? this.sedeId,
+      clientes: clientes ?? this.clientes,
+      estado: estado ?? this.estado,
+      totalPersonas: totalPersonas ?? this.totalPersonas,
+    );
+  }
+
+  factory Reserva.fromJson(Map<String, dynamic> json) {
+    return Reserva(
+      id: json['id'].toString(),
+      nombreReserva: json['nombreReserva'] ?? json['nombre'] ?? '',
+      fecha: json['fecha'] ?? '',
+      hora: json['hora'] ?? '',
+      cancha: json['cancha'] ?? json['nombreCancha'] ?? '',
+      sedeId: json['sedeId'] as int?,
+      clientes: (json['clientes'] as List?)
+              ?.map((c) => Cliente.fromJson(c))
+              .toList() ??
+          [],
+      estado: json['estado'] ?? 'pendiente',
+      totalPersonas: json['totalPersonas'] ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'nombreReserva': nombreReserva,
+      'fecha': fecha,
+      'hora': hora,
+      'cancha': cancha,
+      'sedeId': sedeId,
+      'clientes': clientes.map((c) => c.toJson()).toList(),
+      'estado': estado,
+      'totalPersonas': totalPersonas,
+    };
+  }
+}
+
+// Enum para tipo de escaneo
+enum ScanType { success, warning, error }
+
+// Resultado del escaneo
+class ScanResult {
+  final bool success;
+  final String message;
+  final ScanType type;
+  final Cliente? cliente;
+
+  ScanResult({
+    required this.success,
+    required this.message,
+    required this.type,
+    this.cliente,
+  });
+}
+```
+
+---
+
+## 4️⃣ Servicios API
+
+### `lib/services/qr_api_service.dart`
+
+```dart
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
+class QrApiService {
+  final String baseUrl;
+  final String? authToken;
+
+  QrApiService({required this.baseUrl, this.authToken});
+
+  Map<String, String> _headers() => {
+        'Content-Type': 'application/json',
+        if (authToken != null) 'Authorization': 'Bearer $authToken',
+      };
+
+  // 1. Obtener pase de acceso por reserva
+  Future<Map<String, dynamic>> getPasePorReserva(int idReserva) async {
+    final uri = Uri.parse('$baseUrl/pases-acceso/reserva/$idReserva');
+    final res = await http.get(uri, headers: _headers());
+    
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    }
+    throw Exception('Error ${res.statusCode} al obtener pase');
+  }
+
+  // 2. Asegurar que el operador trabaja en la sede
+  Future<void> ensureTrabaja(int idPersonaOpe, int idSede) async {
+    // Verificar si ya existe
+    final uriGet = Uri.parse('$baseUrl/trabaja/$idPersonaOpe/$idSede');
+    final resGet = await http.get(uriGet, headers: _headers());
+    
+    if (resGet.statusCode == 200) {
+      return; // Ya existe la relación
+    }
+    
+    // Crear nueva relación
+    final uriPost = Uri.parse('$baseUrl/trabaja');
+    final body = jsonEncode({
+      'idPersonaOpe': idPersonaOpe,
+      'idSede': idSede,
+    });
+    final resPost = await http.post(uriPost, headers: _headers(), body: body);
+    
+    if (resPost.statusCode >= 200 && resPost.statusCode < 300) {
+      return;
+    }
+    throw Exception('Error ${resPost.statusCode} al crear trabaja');
+  }
+
+  // 3. Crear registro de control
+  Future<void> crearControla({
+    required int idPersonaOpe,
+    required int idReserva,
+    required int idPaseAcceso,
+    required String accion,
+    required String resultado,
+  }) async {
+    final uri = Uri.parse('$baseUrl/controla');
+    final body = jsonEncode({
+      'idPersonaOpe': idPersonaOpe,
+      'idReserva': idReserva,
+      'idPaseAcceso': idPaseAcceso,
+      'accion': accion,
+      'resultado': resultado,
+    });
+    
+    final res = await http.post(uri, headers: _headers(), body: body);
+    
+    if (res.statusCode >= 200 && res.statusCode < 300) return;
+    throw Exception('Error ${res.statusCode} al crear controla');
+  }
+
+  // 4. Finalizar pase de acceso (actualizar usos)
+  Future<void> finalizarPaseAccesoUsos({
+    required int idPaseAcceso,
+    required int vecesUsado,
+    required String estado,
+  }) async {
+    final uri = Uri.parse('$baseUrl/pases-acceso/$idPaseAcceso');
+    final body = jsonEncode({
+      'vecesUsado': vecesUsado,
+      'estado': estado,
+    });
+    
+    final res = await http.patch(uri, headers: _headers(), body: body);
+    
+    if (res.statusCode >= 200 && res.statusCode < 300) return;
+    throw Exception('Error ${res.statusCode} al actualizar pase');
+  }
+}
+```
+
+---
+
+## 5️⃣ Pantallas del Sistema
+
+**`lib/screens/qr_scanner_screen.dart`**cipales:
+
+### 📋 **A) Pantalla de Reservas Pendientes**
+
+Esta pantalla lista todas las reservas de una sede y permite seleccionar una para ver detalles o escanear.
+
+**`lib/screens/pending_reservations_screen.dart`**
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+class PendingReservationsScreen extends ConsumerStatefulWidget {
+  static const String routeName = '/reservas/pendientes';
+
+  const PendingReservationsScreen({super.key});
+
+  @override
+  ConsumerState<PendingReservationsScreen> createState() => 
+      _PendingReservationsScreenState();
+}
+
+class _PendingReservationsScreenState 
+    extends ConsumerState<PendingReservationsScreen> {
+  List<Reserva> _reservas = [];
+  int? _sedeId;
+  String? _role;
+  bool _isLoading = true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    
+    // Obtener argumentos de navegación
+    final rawArgs = ModalRoute.of(context)?.settings.arguments;
+    if (rawArgs is Map) {
+      final args = Map<String, dynamic>.from(rawArgs);
+      _sedeId = args['idSede'] as int?;
+      _role = args['role'] as String?;
+      
+      // ⭐ Control de roles
+      const allowed = {'ADMIN', 'DUENIO', 'CONTROLADOR'};
+      if (_role == null || !allowed.contains(_role)) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Acceso solo para administradores y controladores'),
+            ),
+          );
+          Navigator.pop(context);
+        });
+        return;
+      }
+      
+      // Cargar reservas de la sede
+      if (_sedeId != null) {
+        _loadReservas(_sedeId!);
+      }
+    }
+  }
+
+  Future<void> _loadReservas(int idSede) async {
+    setState(() => _isLoading = true);
+    
+    try {
+      // TODO: Reemplazar con tu servicio API real
+      final response = await http.get(
+        Uri.parse('http://TU_SERVIDOR/api/reservas/sede/$idSede/pendientes'),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as List;
+        setState(() {
+          _reservas = data.map((r) => Reserva.fromJson(r)).toList();
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
+  }
+
+  void _openReservationDetail(Reserva reserva) {
+    Navigator.pushNamed(
+      context,
+      ReservationDetailScreen.routeName,
+      arguments: {'reserva': reserva},
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Reservas Pendientes'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.qr_code_scanner),
+            onPressed: () => Navigator.pushNamed(context, '/qr-scanner'),
+            tooltip: 'Escanear QR',
+          ),
+        ],
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _reservas.isEmpty
+              ? const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.calendar_today, size: 64, color: Colors.grey),
+                      SizedBox(height: 16),
+                      Text('No hay reservas pendientes'),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: _reservas.length,
+                  padding: const EdgeInsets.all(16),
+                  itemBuilder: (context, index) {
+                    final reserva = _reservas[index];
+                    
+                    // Color según estado
+                    Color estadoColor;
+                    switch (reserva.estado) {
+                      case 'completada':
+                        estadoColor = Colors.green;
+                        break;
+                      case 'en_proceso':
+                        estadoColor = Colors.blue;
+                        break;
+                      default:
+                        estadoColor = Colors.orange;
+                    }
+                    
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: InkWell(
+                        onTap: () => _openReservationDetail(reserva),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      reserva.nombreReserva,
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  Chip(
+                                    label: Text(reserva.estado),
+                                    backgroundColor: estadoColor.withOpacity(0.2),
+                                    labelStyle: TextStyle(color: estadoColor),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  const Icon(Icons.group, size: 16),
+                                  const SizedBox(width: 8),
+                                  Text('${reserva.totalPersonas} personas'),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  const Icon(Icons.calendar_today, size: 16),
+                                  const SizedBox(width: 8),
+                                  Text(reserva.fecha),
+                                  const SizedBox(width: 16),
+                                  const Icon(Icons.access_time, size: 16),
+                                  const SizedBox(width: 8),
+                                  Text(reserva.hora),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  const Icon(Icons.place, size: 16),
+                                  const SizedBox(width: 8),
+                                  Text(reserva.cancha),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  onPressed: () => _openReservationDetail(reserva),
+                                  child: const Text('Ver Detalles'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+    );
+  }
+}
+```
+
+### 📄 **B) Pantalla de Detalle de Reserva**
+
+Muestra información completa de la reserva y la lista de clientes.
+
+**`lib/screens/reservation_detail_screen.dart`**
+
+```dart
+import 'package:flutter/material.dart';
+
+class ReservationDetailScreen extends StatelessWidget {
+  static const String routeName = '/reserva/detalle';
+
+  const ReservationDetailScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final args = ModalRoute.of(context)!.settings.arguments as Map;
+    final reserva = args['reserva'] as Reserva;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Detalle de Reserva'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.qr_code_scanner),
+            onPressed: () {
+              // Navegar al escáner con esta reserva
+              Navigator.pushNamed(
+                context,
+                QRScannerScreen.routeName,
+                arguments: {
+                  'reserva': reserva,
+                  'idPaseAcceso': args['idPaseAcceso'],
+                  'idPersonaOpe': args['idPersonaOpe'],
+                  'idSede': reserva.sedeId,
+                },
+              );
+            },
+            tooltip: 'Iniciar Escaneo',
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Información de la reserva
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      reserva.nombreReserva,
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: 16),
+                    _InfoRow(
+                      icon: Icons.calendar_today,
+                      label: 'Fecha',
+                      value: reserva.fecha,
+                    ),
+                    _InfoRow(
+                      icon: Icons.access_time,
+                      label: 'Hora',
+                      value: reserva.hora,
+                    ),
+                    _InfoRow(
+                      icon: Icons.place,
+                      label: 'Cancha',
+                      value: reserva.cancha,
+                    ),
+                    _InfoRow(
+                      icon: Icons.group,
+                      label: 'Personas',
+                      value: '${reserva.totalPersonas}',
+                    ),
+                    _InfoRow(
+                      icon: Icons.info_outline,
+                      label: 'Estado',
+                      value: reserva.estado,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Lista de clientes
+            Text(
+              'Personas Autorizadas',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            
+            ...reserva.clientes.map((cliente) {
+              return Card(
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: cliente.escaneado 
+                        ? Colors.green 
+                        : Colors.grey,
+                    child: Icon(
+                      cliente.escaneado ? Icons.check : Icons.person,
+                      color: Colors.white,
+                    ),
+                  ),
+                  title: Text(cliente.nombre),
+                  subtitle: Text('Doc: ${cliente.documento}'),
+                  trailing: cliente.escaneado
+                      ? Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            const Text(
+                              'Escaneado',
+                              style: TextStyle(
+                                color: Colors.green,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            if (cliente.horaEscaneo != null)
+                              Text(
+                                cliente.horaEscaneo!,
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                          ],
+                        )
+                      : const Text('Pendiente'),
+                ),
+              );
+            }).toList(),
+            
+            const SizedBox(height: 16),
+            
+            // Botón para iniciar escaneo
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pushNamed(
+                    context,
+                    QRScannerScreen.routeName,
+                    arguments: {
+                      'reserva': reserva,
+                      'idPaseAcceso': args['idPaseAcceso'],
+                      'idPersonaOpe': args['idPersonaOpe'],
+                      'idSede': reserva.sedeId,
+                    },
+                  );
+                },
+                icon: const Icon(Icons.qr_code_scanner),
+                label: const Text('Iniciar Escaneo de QR'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.all(16),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: Colors.grey),
+          const SizedBox(width: 12),
+          Text(
+            '$label: ',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          Expanded(child: Text(value)),
+        ],
+      ),
+    );
+  }
+}
+```
+
+### 📷 **C) Pantalla de Escaneo QR**
+
+### `lib/screens/qr_scanner_screen.dart`
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
+import '../models/reserva.dart';
+import '../services/qr_api_service.dart';
+
+class QRScannerScreen extends StatefulWidget {
+  static const String routeName = '/qr-scanner';
+  
+  const QRScannerScreen({super.key});
+
+  @override
+  State<QRScannerScreen> createState() => _QRScannerScreenState();
+}
+
+class _QRScannerScreenState extends State<QRScannerScreen> {
+  Reserva? currentReserva;
+  int? idPaseAcceso;
+  int? idPersonaOpe;      // ID del operador/controlador
+  int? idSede;            // ID de la sede
+  bool scanning = true;
+  
+  final TextEditingController _qrController = TextEditingController();
+  final List<ScanResult> scanHistory = [];
+  
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    
+    // Recibir argumentos de navegación
+    final rawArgs = ModalRoute.of(context)?.settings.arguments;
+    if (rawArgs is Map) {
+      final args = Map<String, dynamic>.from(rawArgs);
+      currentReserva ??= args['reserva'] as Reserva?;
+      idPaseAcceso ??= args['idPaseAcceso'] as int?;
+      idPersonaOpe ??= args['idPersonaOpe'] as int?;
+      idSede ??= args['idSede'] as int?;
+    }
+  }
+
+  // Procesar el escaneo de un código QR
+  void _processScan(String qrCode) {
+    if (currentReserva == null || qrCode.trim().isEmpty) return;
+
+    // Buscar el cliente por su código QR
+    final idx = currentReserva!.clientes.indexWhere((c) => c.qrCode == qrCode);
+    
+    ScanResult result;
+    
+    if (idx == -1) {
+      // QR no pertenece a esta reserva
+      result = ScanResult(
+        success: false,
+        message: 'QR no pertenece a esta reserva',
+        type: ScanType.error,
+      );
+      _showSnackBar('QR no pertenece a esta reserva');
+    } else {
+      final cliente = currentReserva!.clientes[idx];
+      
+      if (cliente.escaneado) {
+        // QR ya fue escaneado previamente
+        result = ScanResult(
+          success: false,
+          message: 'QR ya registrado',
+          type: ScanType.warning,
+          cliente: cliente,
+        );
+        _showSnackBar('QR ya registrado');
+      } else {
+        // Registrar hora de escaneo
+        final now = DateTime.now();
+        final hora = '${now.hour.toString().padLeft(2, '0')}:'
+                     '${now.minute.toString().padLeft(2, '0')}:'
+                     '${now.second.toString().padLeft(2, '0')}';
+        
+        // Actualizar cliente como escaneado
+        final updated = List<Cliente>.from(currentReserva!.clientes);
+        updated[idx] = cliente.copyWith(escaneado: true, horaEscaneo: hora);
+        
+        setState(() {
+          currentReserva = currentReserva!.copyWith(clientes: updated);
+        });
+        
+        result = ScanResult(
+          success: true,
+          message: 'Ingreso autorizado',
+          type: ScanType.success,
+          cliente: updated[idx],
+        );
+        _showSnackBar('Ingreso autorizado');
+      }
+    }
+    
+    // Agregar al historial
+    setState(() {
+      scanHistory.insert(0, result);
+      _qrController.clear();
+    });
+  }
+
+  // Finalizar el proceso de escaneo
+  Future<void> _finalizarIngreso() async {
+    final total = currentReserva?.totalPersonas ?? 0;
+    final scanned = currentReserva?.clientes.where((c) => c.escaneado).length ?? 0;
+    
+    if (total == 0 || scanned < total) {
+      _showSnackBar('Aún faltan personas por escanear');
+      return;
+    }
+    
+    try {
+      final api = QrApiService(
+        baseUrl: 'http://TU_SERVIDOR:3000/api',
+        // authToken: 'tu_token_aqui', // Si usas autenticación
+      );
+      
+      // 1. Asegurar relación trabaja (operador-sede)
+      if (idPersonaOpe != null && idSede != null) {
+        await api.ensureTrabaja(idPersonaOpe!, idSede!);
+      }
+      
+      // 2. Actualizar pase de acceso
+      if (idPaseAcceso != null) {
+        await api.finalizarPaseAccesoUsos(
+          idPaseAcceso: idPaseAcceso!,
+          vecesUsado: total,
+          estado: 'USADO',
+        );
+      }
+      
+      // 3. Crear registro de control (auditoría)
+      if (idPersonaOpe != null && idPaseAcceso != null && currentReserva != null) {
+        await api.crearControla(
+          idPersonaOpe: idPersonaOpe!,
+          idReserva: int.parse(currentReserva!.id),
+          idPaseAcceso: idPaseAcceso!,
+          accion: 'entrada',
+          resultado: 'COMPLETADO_$total',
+        );
+      }
+      
+      _showSnackBar('Ingreso completado y registrado');
+      if (mounted) Navigator.pop(context, currentReserva);
+    } catch (e) {
+      _showSnackBar('Error al finalizar: $e');
+    }
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final total = currentReserva?.totalPersonas ?? 0;
+    final scanned = currentReserva?.clientes.where((c) => c.escaneado).length ?? 0;
+    final pending = total - scanned;
+    
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Escaneo de QR'),
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Resumen de escaneos
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Personas pendientes'),
+                          Text(
+                            '$pending de $total',
+                            style: Theme.of(context).textTheme.headlineMedium,
+                          ),
+                        ],
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          const Text('Escaneados'),
+                          Text(
+                            '$scanned',
+                            style: Theme.of(context).textTheme.headlineMedium,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              
+              const SizedBox(height: 16),
+              
+              // Barra de progreso
+              LinearProgressIndicator(
+                value: total == 0 ? 0 : scanned / total,
+                minHeight: 12,
+              ),
+              
+              const SizedBox(height: 16),
+              
+              // Visor de cámara
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Visor de Cámara'),
+                          Chip(
+                            label: Text(scanning ? 'Activo' : 'Detenido'),
+                            backgroundColor: scanning ? Colors.green : Colors.grey,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      
+                      // Escáner QR
+                      Container(
+                        height: 250,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: MobileScanner(
+                          controller: MobileScannerController(
+                            facing: CameraFacing.back,
+                            torchEnabled: false,
+                          ),
+                          onDetect: (capture) {
+                            if (!scanning) return;
+                            
+                            final barcodes = capture.barcodes;
+                            if (barcodes.isEmpty) return;
+                            
+                            final raw = barcodes.first.rawValue ?? '';
+                            if (raw.isEmpty) return;
+                            
+                            _processScan(raw);
+                          },
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 12),
+                      
+                      // Input manual
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _qrController,
+                              enabled: scanning,
+                              decoration: const InputDecoration(
+                                hintText: 'Ingresa el código QR manualmente...',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: (!scanning || _qrController.text.trim().isEmpty)
+                                ? null
+                                : () => _processScan(_qrController.text),
+                            child: const Text('Escanear'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              
+              const SizedBox(height: 16),
+              
+              // Historial de escaneos
+              if (scanHistory.isNotEmpty)
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Historial de Escaneos',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        ...scanHistory.map((r) {
+                          Color color;
+                          switch (r.type) {
+                            case ScanType.success:
+                              color = Colors.green.shade100;
+                              break;
+                            case ScanType.warning:
+                              color = Colors.orange.shade100;
+                              break;
+                            case ScanType.error:
+                              color = Colors.red.shade100;
+                              break;
+                          }
+                          
+                          return Container(
+                            margin: const EdgeInsets.symmetric(vertical: 4),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: color,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    r.cliente != null
+                                        ? '${r.cliente!.nombre} - ${r.message}'
+                                        : r.message,
+                                  ),
+                                ),
+                                if (r.cliente?.horaEscaneo != null)
+                                  Text(r.cliente!.horaEscaneo!),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ],
+                    ),
+                  ),
+                ),
+              
+              const SizedBox(height: 16),
+              
+              // Botones de acción
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => setState(() => scanning = !scanning),
+                      child: Text(scanning ? 'Detener' : 'Reanudar'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _finalizarIngreso,
+                      child: const Text('Finalizar'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+```
+
+---
+
+---
+
+### En tu `main.dart`:
+
+```dart
+import 'package:flutter/material.dart';
+import 'screens/pending_reservations_screen.dart';
+import 'screens/reservation_detail_screen.dart';
+import 'screens/qr_scanner_screen.dart';
+
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Mi App QR',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+        useMaterial3: true,
+      ),
+      routes: {
+        // Flujo completo de escaneo
+        PendingReservationsScreen.routeName: (context) => 
+### Flujo de navegación completo:
+
+```dart
+// 1️⃣ Ir a lista de reservas pendientes (desde menú principal)
+Navigator.pushNamed(
+  context,
+  PendingReservationsScreen.routeName,
+  arguments: {
+    'idSede': 1,                    // ID de la sede
+    'role': 'CONTROLADOR',          // Rol del usuario (ADMIN, DUENIO, CONTROLADOR)
+  },
+);
+
+// 2️⃣ Usuario selecciona una reserva → va al detalle
+// (se maneja automáticamente en PendingReservationsScreen)
+
+// 3️⃣ Desde el detalle → inicia escaneo QR
+Navigator.pushNamed(
+## 8️⃣ Flujo Completo del Sistema
+
+### Diagrama de flujo detallado:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ INICIO: Usuario con rol CONTROLADOR/ADMIN/DUENIO           │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 1. PANTALLA: Lista de Reservas Pendientes                  │
+│    - Filtra por sede                                        │
+│    - Valida rol del usuario                                 │
+│    - Muestra estado de cada reserva                         │
+│    - Carga desde: GET /api/reservas/sede/:id/pendientes   │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     │ Usuario selecciona una reserva
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 2. PANTALLA: Detalle de Reserva                            │
+│    - Muestra información completa                           │
+│    - Lista de clientes autorizados                          │
+│    - Indica quiénes ya fueron escaneados                   │
+│    - Botón "Iniciar Escaneo"                               │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     │ Usuario inicia escaneo
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 3. PANTALLA: Escáner QR                                     │
+│    - Activa cámara con mobile_scanner                       │
+│    - Permite entrada manual alternativa                     │
+│    - Contador de escaneados vs pendientes                   │
+## 🔧 Endpoints de API Necesarios
+
+Tu backend debe implementar estos endpoints:
+
+### **Reservas:**
+```
+GET    /api/reservas/sede/:idSede/pendientes
+       → Retorna lista de reservas pendientes de una sede
+       → Respuesta: [{ id, nombreReserva, fecha, hora, cancha, totalPersonas, clientes[], estado }]
+
+GET    /api/reservas/:idReserva
+       → Retorna detalle completo de una reserva
+       → Respuesta: { id, nombreReserva, ..., clientes: [{ id, nombre, documento, qrCode, escaneado }] }
+```
+
+### **Pases de Acceso:**
+```
+GET    /api/pases-acceso/reserva/:idReserva
+       → Obtiene pase de acceso asociado a la reserva
+       → Respuesta: { id, codigo, vecesUsado, estado }
+
+PATCH  /api/pases-acceso/:idPaseAcceso
+       → Actualiza veces usado y estado del pase
+       → Body: { vecesUsado: number, estado: string }
+```
+
+### **Gestión de Personal:**
+```
+GET    /api/trabaja/:idPersonaOpe/:idSede
+       → Verifica si operador trabaja en la sede
+       → Respuesta: { exists: boolean } o 404
+
+POST   /api/trabaja
+       → Crea relación operador-sede
+       → Body: { idPersonaOpe: number, idSede: number }
+```
+
+### **Auditoría:**
+```
+POST   /api/controla
+       → Registra acción de control (auditoría)
+       → Body: { 
+           idPersonaOpe: number,
+           idReserva: number,
+           idPaseAcceso: number,
+           accion: string,      // "entrada" | "salida"
+           resultado: string    // "COMPLETADO_X" | "ERROR_X"
+         }
+```     │ NO                        │ SÍ                     │
+│       ▼                           ▼                         │
+│  [ERROR]              ¿Ya fue escaneado?                   │
+│  Mostrar:             ┌────┬────┐                          │
+│  "QR no válido"       │ SÍ │ NO │                          │
+│                       ▼    ▼                                │
+│                  [WARNING] [SUCCESS]                        │
+│                  "Ya       Marcar como                      │
+│                  registrado" escaneado                      │
+│                            + hora                           │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     │ Actualiza estado local
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 5. ACTUALIZACIÓN: Estado de la reserva                     │
+│    - Marca cliente como escaneado ✓                        │
+│    - Registra hora exacta del escaneo                      │
+│    - Actualiza contador (pendientes/escaneados)            │
+│    - Agrega al historial de escaneos                       │
+│    - Actualiza barra de progreso                           │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     │ ¿Todos escaneados?
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 6. CONDICIONAL                                              │
+│    ┌────────────────────────────────────┐                  │
+│    │ ¿Pendientes == 0?                  │                  │
+│    └──┬─────────────────────────────┬───┘                  │
+│       │ NO                          │ SÍ                   │
+│       ▼                             ▼                       │
+│  Continuar        Usuario presiona "Finalizar"             │
+│  escaneando       ↓                                         │
+│  más códigos      Permite finalización                     │
+└───────────────────┴─────────────────┬───────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 7. PERSISTENCIA: Llamadas API                              │
+│    a) POST /api/trabaja                                     │
+│       - Registra: operador trabaja en sede                  │
+│                                                             │
+│    b) PATCH /api/pases-acceso/:id                          │
+│       - vecesUsado: total personas                          │
+│       - estado: "USADO"                                     │
+│                                                             │
+│    c) POST /api/controla                                    │
+│       - idPersonaOpe, idReserva, idPaseAcceso              │
+│       - accion: "entrada"                                   │
+│       - resultado: "COMPLETADO_X"                           │
+│       - Auditoría del proceso                              │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     │ Todo exitoso
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 8. FINALIZACIÓN                                             │
+│    - Muestra mensaje de éxito                              │
+│    - Actualiza estado reserva a "completada"               │
+│    - Navigator.pop() con datos actualizados                │
+│    - Regresa a pantalla de detalle                         │
+└─────────────────────────────────────────────────────────────┘
+
+ESTADOS DE RESERVA:
+  • pendiente   → No se ha iniciado el escaneo
+  • en_proceso  → Algunos clientes escaneados, faltan otros
+  • completada  → Todos los clientes fueron escaneados
+```     throw Exception('Error ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Error al obtener reserva: $e');
+    }
+  }
+}
+```
+
+---
+
+## 7️⃣ Integración con Navegación
+
+### En tu `main.dart` o archivo de rutas:
+
+```dart
+import 'package:flutter/material.dart';
+import 'screens/qr_scanner_screen.dart';
+
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Mi App',
+      routes: {
+        QRScannerScreen.routeName: (context) => const QRScannerScreen(),
+        // ... otras rutas
+      },
+    );
+  }
+}
+```
+
+### Navegar a la pantalla de escaneo:
+
+```dart
+// Desde cualquier parte de tu app
 Navigator.pushNamed(
   context,
   QRScannerScreen.routeName,
   arguments: {
-    'reserva': miReserva,           // Objeto Reserva con clientes
+    'reserva': miReserva,           // Objeto Reserva
     'idPaseAcceso': 123,            // ID del pase de acceso
-    'idPersonaOpe': 456,            // ID del operador/controlador
+    'idPersonaOpe': 456,            // ID del operador
     'idSede': 789,                  // ID de la sede
   },
 );
 ```
 
-### Estructura del Objeto Reserva
+---
+
+## 7️⃣ Flujo Completo
+
+### Diagrama de flujo:
+
+```
+1. Usuario abre pantalla de escaneo
+   ↓
+2. Recibe reserva con lista de clientes y sus QR codes
+   ↓
+3. Escanea QR (con cámara o manualmente)
+   ↓
+4. Valida si el QR pertenece a la reserva
+   ↓
+5a. ❌ NO pertenece → Muestra error
+5b. ✅ Pertenece pero ya escaneado → Muestra advertencia
+5c. ✅ Pertenece y no escaneado → Marca como escaneado
+   ↓
+6. Registra hora de escaneo
+   ↓
+7. Actualiza contador (pendientes/escaneados)
+   ↓
+8. Agrega al historial de escaneos
+   ↓
+9. Usuario presiona "Finalizar" cuando todos están escaneados
+   ↓
+10. API Calls:
+    a) ensureTrabaja() - Registra operador en sede
+    b) finalizarPaseAccesoUsos() - Actualiza pase
+    c) crearControla() - Registra auditoría
+   ↓
+11. Regresa a pantalla anterior con resultados
+```
+
+---
+
+## 🔧 Endpoints de API Necesarios
+
+Tu backend debe tener estos endpoints:
+
+```
+GET    /api/pases-acceso/reserva/:idReserva
+GET    /api/trabaja/:idPersonaOpe/:idSede
+POST   /api/trabaja
+POST   /api/controla
+PATCH  /api/pases-acceso/:idPaseAcceso
+```
+
+---
+
+## 🎨 Personalización
+
+### Cambiar colores:
+```dart
+// En tu tema
+primaryColor: Colors.blue,
+cardColor: Colors.grey[100],
+```
+
+### Cambiar URL del servidor:
+```dart
+final api = QrApiService(
+  baseUrl: 'https://tu-servidor.com/api',
+  authToken: 'tu_token',
+);
+```
+
+### Agregar validaciones personalizadas:
+```dart
+void _processScan(String qrCode) {
+## 📱 Permisos de Cámara
+
+### Android (`android/app/src/main/AndroidManifest.xml`):
+
+**IMPORTANTE:** Agregar el permiso **ANTES** del tag `<application>`:
+
+```xml
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- ⭐ Camera permission for QR scanning -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    
+    <application
+        android:label="tu_app"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher">
+        <!-- ... resto de la configuración ... -->
+    </application>
+</manifest>
+```
+
+### iOS (`ios/Runner/Info.plist`):
+
+Agregar dentro del tag `<dict>`:
+
+```xml
+<key>NSCameraUsageDescription</key>
+<string>Necesitamos acceso a la cámara para escanear códigos QR</string>
+```
+
+**Ubicación completa en Info.plist:**
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- ... otras configuraciones ... -->
+    
+    <!-- ⭐ Camera permission -->
+    <key>NSCameraUsageDescription</key>
+    <string>Necesitamos acceso a la cámara para escanear códigos QR</string>
+    
+    <!-- ... resto de configuraciones ... -->
+---
+
+## 🎯 Ejemplo de Datos Mock (Para Testing)
+
+Si necesitas datos de prueba sin backend:
 
 ```dart
-final reserva = Reserva(
+// En tu pantalla o controlador
+final reservaMock = Reserva(
   id: '1',
-  nombreReserva: 'Reserva Fútbol 5',
-  fecha: '2025-12-05',
+### Problema: Error al llamar API
+**Solución:** Verificar que el `baseUrl` sea correcto y que el servidor esté corriendo.
+
+### Problema: MobileScanner no funciona en emulador
+**Solución:** 
+- En Android Studio: Configurar cámara virtual en AVD Manager
+- Usar dispositivo físico para mejor experiencia
+- Usar modo manual (TextField) para testing en emulador
+
+### Problema: Escaneos duplicados
+**Solución:** Implementar control de tiempo entre escaneos (ver sección "Control de Versiones del Escáner")
+
+### Problema: "Permission denied" en Android
+**Solución:** 
+1. Verificar que el permiso esté en AndroidManifest.xml
+2. Reinstalar la app después de agregar permisos
+3. Verificar permisos manualmente en: Configuración > Apps > Tu App > Permisos
+
+### Problema: Hot reload no funciona con MobileScanner
+**Solución:** Hacer hot restart completo (Shift + R en terminal de Flutter)
   hora: '18:00',
   cancha: 'Cancha Principal',
   sedeId: 1,
@@ -119,158 +1538,105 @@ final reserva = Reserva(
       nombre: 'María García',
       documento: '87654321',
       qrCode: 'QR002-MARIA',
-      escaneado: false,
-    ),
-    // ... más clientes
-  ],
-);
-```
+## 📚 Recursos Adicionales
+
+- [Documentación mobile_scanner](https://pub.dev/packages/mobile_scanner)
+- [HTTP package](https://pub.dev/packages/http)
+- [Flutter Navigation](https://docs.flutter.dev/cookbook/navigation)
+- [Flutter Riverpod](https://riverpod.dev/) (si usas state management)
 
 ---
 
-## 🔄 Flujo de Escaneo
+## 💡 Notas Importantes
 
-1. **Usuario abre pantalla de escaneo** → Recibe reserva y parámetros
-2. **Escanea QR** (con cámara o manualmente)
-3. **Validación**:
-   - ❌ QR no pertenece → Error
-   - ⚠️ QR ya escaneado → Advertencia
-   - ✅ QR válido y no escaneado → Éxito
-4. **Registra hora de escaneo** → Actualiza estado del cliente
-5. **Muestra en historial** → Feedback visual
-6. **Al completar todos** → Presiona "Finalizar"
-7. **API Calls**:
-   - `ensureTrabaja()` - Vincula operador con sede
-   - `finalizarPaseAccesoUsos()` - Actualiza pase
-   - `crearControla()` - Auditoría del proceso
-8. **Regresa con resultados** → Reserva actualizada
+### ⚠️ **Consideraciones de Seguridad**
+- **NO** hardcodear tokens o credenciales en el código
+- Usar variables de entorno para URLs de producción
+- Validar todos los datos del backend antes de usarlos
+- Implementar timeout en las peticiones HTTP
 
----
+### 🎯 **Mejores Prácticas**
+1. **Logging:** Implementar logs para debugging sin afectar producción
+2. **Error Handling:** Manejo robusto de errores de red y permisos
+3. **UX:** Mostrar loading states durante operaciones de red
+4. **Offline Mode:** Considerar qué hacer si no hay conexión
+5. **Testing:** Probar con datos mock antes de conectar al backend
 
-## 🎨 Características Implementadas
-
-### ✅ Escaneo de Cámara
-- Usa `mobile_scanner` para lectura de códigos QR
-- Botón pause/resume para control del escaneo
-- Compatible con Android e iOS
-
-### ✅ Entrada Manual
-- Campo de texto para ingresar códigos manualmente
-- Útil cuando la cámara no funciona o para testing
-
-### ✅ Control de Duplicados
-- Evita escaneos múltiples del mismo código en menos de 2 segundos
-- Previene errores por detección repetida de la cámara
-
-### ✅ Historial Visual
-- Lista de todos los escaneos realizados
-- Códigos de color:
-  - 🟢 Verde: Escaneo exitoso
-  - 🟠 Naranja: Advertencia (ya escaneado)
-  - 🔴 Rojo: Error (QR inválido)
-
-### ✅ Barra de Progreso
-- Muestra visualmente cuántas personas faltan por escanear
-- Actualización en tiempo real
-
-### ✅ Validaciones
-- Verifica que el QR pertenezca a la reserva
-- Detecta QRs ya escaneados
-- Impide finalizar si faltan personas
-
-### ✅ Integración con Backend
-- Registra operador en sede (tabla `trabaja`)
-- Actualiza pase de acceso (tabla `pases_acceso`)
-- Crea registro de control (tabla `controla`)
-
----
-
-## 🔧 Endpoints de Backend Utilizados
-
-```
-GET    /api/pases-acceso/reserva/:idReserva
-GET    /api/trabaja/:idPersonaOpe/:idSede
-POST   /api/trabaja
-POST   /api/controla
-PATCH  /api/pases-acceso/:idPaseAcceso
-```
-
-Asegúrate de que tu backend en `espacios_deportivos` tenga estos endpoints implementados.
-
----
-
-## 📱 Permisos Configurados
-
-### Android
-- Permiso `CAMERA` agregado en `AndroidManifest.xml`
-- Se solicita automáticamente al usuario la primera vez
-
-### iOS
-- `NSCameraUsageDescription` configurado en `Info.plist`
-- Descripción clara del uso de la cámara
-
----
-
-## 🐛 Troubleshooting
-
-### Problema: La cámara no inicia
-**Solución:** 
-1. Verifica permisos en configuración del dispositivo
-2. Reinstala la app después de agregar permisos
-3. Usa entrada manual como alternativa
-
-### Problema: Escaneos duplicados
-**Solución:** Ya implementado - Control de 2 segundos entre escaneos del mismo código
-
-### Problema: Error al finalizar
-**Solución:** 
-1. Verifica conexión con el backend
-2. Revisa que los endpoints estén disponibles
-3. Confirma que los IDs (idPersonaOpe, idSede, idPaseAcceso) sean válidos
-
-### Problema: Hot reload no funciona
-**Solución:** Hacer hot restart completo (`Shift + R` en terminal)
-
----
-
-## 🔐 Consideraciones de Seguridad
-
-- ✅ Usa `ApiClient` con autenticación por token
-- ✅ Validación de permisos antes de acceder
-- ✅ Registro de auditoría en tabla `controla`
-- ⚠️ NO exponer IDs sensibles en logs de producción
-
----
-
-## 📊 Datos de Prueba (Testing)
-
-Para probar sin backend completo, puedes crear datos mock:
-
+### 🔐 **Gestión de Estados**
 ```dart
-final reservaMock = Reserva(
-  id: '1',
-  nombreReserva: 'Reserva Test',
-  fecha: '2025-12-05',
-  hora: '18:00',
-  cancha: 'Cancha Test',
-  sedeId: 1,
-  estado: 'pendiente',
-  totalPersonas: 2,
-  clientes: [
-    Cliente(
-      id: '1',
-      nombre: 'Test User 1',
-      documento: '12345678',
-      qrCode: 'TEST001',
-      escaneado: false,
+// Ejemplo con estado de carga
+bool _isLoading = false;
+
+Future<void> _finalizarIngreso() async {
+  setState(() => _isLoading = true);
+  
+  try {
+    // ... operaciones API ...
+  } catch (e) {
+    // ... manejo de errores ...
+  } finally {
+    if (mounted) setState(() => _isLoading = false);
+  }
+}
+```
+
+### 📊 **Métricas Útiles**
+- Tiempo promedio de escaneo por persona
+- Tasa de éxito vs errores
+- Cantidad de escaneos duplicados detectados
+- Tiempo total del proceso de ingreso
+
+---
+
+## 🎨 Personalización Avanzada
+
+### Colores del Tema (ejemplo con tu proyecto actual):
+```dart
+// AppColors personalizados
+class AppColors {
+  static const primary500 = Color(0xFF1E40AF);
+  static const primary700 = Color(0xFF1E3A8A);
+  static const secondary = Color(0xFF10B981);
+  static const success = Color(0xFF22C55E);
+  static const error = Color(0xFFEF4444);
+  static const warning = Color(0xFFF59E0B);
+  static const card = Color(0xFF1F2937);
+  static const muted = Color(0xFF6B7280);
+}
+```
+
+### Animaciones para mejor UX:
+```dart
+// Animación de éxito al escanear
+void _showSuccessAnimation() {
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => AlertDialog(
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.check_circle, color: Colors.green, size: 64),
+          SizedBox(height: 16),
+          Text('¡Escaneo exitoso!'),
+        ],
+      ),
     ),
-    Cliente(
-      id: '2',
-      nombre: 'Test User 2',
-      documento: '87654321',
-      qrCode: 'TEST002',
-      escaneado: false,
-    ),
+  );
+  
+  Future.delayed(Duration(milliseconds: 800), () {
+    Navigator.pop(context);
+  });
+}
+```
+
+---
+
+**¡Listo!** Con esta guía completa puedes implementar el sistema de escaneo QR en cualquier proyecto Flutter manteniendo la misma lógica y base de datos. 🚀
+
+**Versión:** 1.0  
+**Última actualización:** Diciembre 2025  
+**Autor:** Basado en ROGU Mobile Project
   ],
 );
 
@@ -280,78 +1646,99 @@ Navigator.pushNamed(
   QRScannerScreen.routeName,
   arguments: {
     'reserva': reservaMock,
-    'idPaseAcceso': 1,
+    'idPaseAcceso': 123,
     'idPersonaOpe': 1,
     'idSede': 1,
   },
 );
 ```
 
-Puedes escribir estos códigos (`TEST001`, `TEST002`) manualmente en el campo de texto.
+---
+
+## 🔄 Control de Versiones del Escáner
+
+Para evitar escaneos duplicados cuando la cámara detecta el mismo QR múltiples veces:
+
+```dart
+class _QRScannerScreenState extends State<QRScannerScreen> {
+  // ... otros campos ...
+  
+  String? _lastScannedCode;
+  DateTime? _lastScanTime;
+  
+  void _processScan(String qrCode) {
+    if (currentReserva == null || qrCode.trim().isEmpty) return;
+    
+    // ⭐ Evitar escaneos duplicados en menos de 2 segundos
+    final now = DateTime.now();
+    if (_lastScannedCode == qrCode && 
+        _lastScanTime != null && 
+        now.difference(_lastScanTime!).inSeconds < 2) {
+      return; // Ignorar escaneo duplicado
+    }
+    
+    _lastScannedCode = qrCode;
+    _lastScanTime = now;
+    
+    // ... resto del código de procesamiento ...
+  }
+}
+```
 
 ---
 
-## 📝 Próximos Pasos
+## 🐛 Troubleshooting
+## ✅ Checklist de Implementación
 
-### Para Implementación Completa:
-
-1. **Cargar reservas reales desde el backend**
-   - Crear endpoint para obtener reservas del día
-   - Filtrar por sede del controlador
-   - Mostrar lista de reservas antes de escanear
-
-2. **Notificaciones**
-   - Sonido o vibración al escanear exitosamente
-   - Alertas visuales más prominentes
-
-3. **Estadísticas**
-   - Dashboard de escaneos del día
-   - Reportes de asistencia
-
-4. **Modo Offline**
-   - Guardar escaneos localmente
-   - Sincronizar cuando haya conexión
+- [ ] Instalar dependencias (`mobile_scanner`, `http`)
+- [ ] Crear modelos (`Reserva`, `Cliente`, `ScanResult`)
+- [ ] Crear servicio API (`QrApiService`)
+- [ ] Crear pantalla de escaneo (`QRScannerScreen`)
+- [ ] Configurar rutas en `main.dart`
+- [ ] Configurar permisos de cámara (Android/iOS)
+- [ ] Probar navegación con argumentos
+- [ ] Probar escaneo con cámara
+- [ ] Probar escaneo manual
+- [ ] Probar finalización y llamadas API
+- [ ] Manejar errores de red
+- [ ] Agregar loading states
 
 ---
 
-## 🎓 Diferencias con la Guía Original
+## 📱 Permisos de Cámara
 
-| Aspecto | Guía Original | Implementación ROGU |
-|---------|---------------|---------------------|
-| Ubicación modelos | `lib/models/` | `lib/src/data/models/` |
-| Ubicación servicios | `lib/services/` | `lib/src/apis/qr/` |
-| Ubicación repositorios | `lib/repositories/` | `lib/src/data/repositories/` |
-| Ubicación screens | `lib/screens/` | `lib/src/presentation/screens/qr/` |
-| HTTP Client | Directo con `http` | `ApiClient` centralizado |
-| Auth | Token opcional | Integrado con `authProvider` |
-| Navegación | Simple | Con `BottomNavBar` y `AppDrawer` |
+### Android (`android/app/src/main/AndroidManifest.xml`):
+```xml
+<uses-permission android:name="android.permission.CAMERA" />
+```
 
----
-
-## ✅ Checklist de Verificación
-
-- [x] Dependencia `mobile_scanner` instalada
-- [x] Modelos `Reserva`, `Cliente`, `ScanResult` creados
-- [x] API endpoints implementados en `QrApi`
-- [x] Repository actualizado con nuevos métodos
-- [x] Pantalla de escaneo completamente funcional
-- [x] Permisos de cámara configurados (Android + iOS)
-- [x] Control de escaneos duplicados
-- [x] Historial visual implementado
-- [x] Integración con backend
-- [x] Manejo de errores robusto
+### iOS (`ios/Runner/Info.plist`):
+```xml
+<key>NSCameraUsageDescription</key>
+<string>Necesitamos acceso a la cámara para escanear códigos QR</string>
+```
 
 ---
 
-## 📚 Recursos
+## 🐛 Troubleshooting
+
+### Problema: La cámara no inicia
+**Solución:** Verificar permisos y que `mobile_scanner` esté correctamente instalado.
+
+### Problema: Los QR no se escanean
+**Solución:** Asegurar que el QR code esté bien formado y visible.
+
+### Problema: Error al llamar API
+**Solución:** Verificar que el `baseUrl` sea correcto y que el servidor esté corriendo.
+
+---
+
+## 📚 Recursos Adicionales
 
 - [Documentación mobile_scanner](https://pub.dev/packages/mobile_scanner)
+- [HTTP package](https://pub.dev/packages/http)
 - [Flutter Navigation](https://docs.flutter.dev/cookbook/navigation)
-- [ApiClient del proyecto](lib/src/core/http/api_client.dart)
 
 ---
 
-**Versión:** 1.0  
-**Fecha:** Diciembre 2025  
-**Proyecto:** ROGU Mobile  
-**Estructura:** Adaptada a arquitectura limpia existente
+**¡Listo!** Con esta guía puedes implementar el sistema de escaneo QR en cualquier proyecto Flutter manteniendo la misma lógica y base de datos. 🚀

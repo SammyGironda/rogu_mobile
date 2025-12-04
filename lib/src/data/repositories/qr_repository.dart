@@ -1,17 +1,18 @@
 import '../../apis/qr/qr_api.dart';
 import '../../core/config/app_config.dart';
 import '../../core/utils/storage_helper.dart';
+import '../models/qr_models.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:typed_data';
 
-/// Repository para QR y validación de acceso
+/// Repository para QR y validacion de acceso
 class QrRepository {
   final QrApi _qrApi;
 
   QrRepository({QrApi? qrApi}) : _qrApi = qrApi ?? QrApi();
 
-  /// Generar código QR para una reserva
+  /// Generar codigo QR para una reserva
   Future<Map<String, dynamic>> generateReservationQr(int idReserva) async {
     try {
       return await _qrApi.generateReservationQr(idReserva);
@@ -20,15 +21,17 @@ class QrRepository {
     }
   }
 
-  /// Validar código QR
+  /// Validar codigo QR
   Future<Map<String, dynamic>> validateQr({
     required String qrCode,
-    required int idControlador,
+    required String accion,
+    int? idPersonaOpe,
   }) async {
     try {
       return await _qrApi.validateQr(
         qrCode: qrCode,
-        idControlador: idControlador,
+        accion: accion,
+        idPersonaOpe: idPersonaOpe,
       );
     } catch (e) {
       throw Exception('Failed to validate QR: $e');
@@ -121,6 +124,28 @@ class QrRepository {
       );
     } catch (e) {
       throw Exception('Failed to finalize pase acceso: $e');
+    }
+  }
+
+  Future<List<SedeAsignada>> getSedesAsignadas() async {
+    try {
+      final data = await _qrApi.getSedesAsignadas();
+      return data
+          .map((e) => SedeAsignada.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to get sedes: $e');
+    }
+  }
+
+  Future<List<PaseAccesoResumen>> getPasesPorSede(int idSede) async {
+    try {
+      final data = await _qrApi.getPasesPorSede(idSede);
+      return data
+          .map((e) => PaseAccesoResumen.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to get pases por sede: $e');
     }
   }
 }

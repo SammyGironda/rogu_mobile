@@ -21,18 +21,22 @@ class QrApi {
   /// Validar código QR: POST /pases-acceso/validar
   Future<Map<String, dynamic>> validateQr({
     required String qrCode,
-    required int idControlador,
+    required String accion,
+    int? idPersonaOpe,
   }) async {
     final response = await _client.post(
       '/pases-acceso/validar',
-      body: {'codigo': qrCode, 'idControlador': idControlador},
+      body: {
+        'codigoQR': qrCode,
+        'accion': accion,
+        if (idPersonaOpe != null) 'idControlador': idPersonaOpe,
+      },
     );
 
-    if (response.statusCode == 200) {
+    if (response.statusCode >= 200 && response.statusCode < 300) {
       return jsonDecode(response.body);
-    } else {
-      throw Exception('Validate QR failed: ${response.body}');
     }
+    throw Exception('Validate QR failed (code ${response.statusCode}): ${response.body}');
   }
 
   /// Obtener pases de acceso para una reserva: GET /pases-acceso/reserva/:id
@@ -115,5 +119,25 @@ class QrApi {
 
     if (res.statusCode >= 200 && res.statusCode < 300) return;
     throw Exception('Error ${res.statusCode} al actualizar pase');
+  }
+
+  /// Listar sedes asignadas al controlador logueado
+  Future<List<dynamic>> getSedesAsignadas() async {
+    final res = await _client.get('/trabaja/me/sedes');
+    if (res.statusCode == 200) {
+      final data = jsonDecode(res.body);
+      return data is List ? data : [];
+    }
+    throw Exception('Error ${res.statusCode} al obtener sedes');
+  }
+
+  /// Listar pases por sede para el controlador logueado
+  Future<List<dynamic>> getPasesPorSede(int idSede) async {
+    final res = await _client.get('/trabaja/me/sedes/$idSede/pases');
+    if (res.statusCode == 200) {
+      final data = jsonDecode(res.body);
+      return data is List ? data : [];
+    }
+    throw Exception('Error ${res.statusCode} al obtener pases de la sede');
   }
 }

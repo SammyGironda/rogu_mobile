@@ -2,16 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
-import '../../widgets/bottom_nav.dart';
-import '../../widgets/app_drawer.dart';
-import '../../../core/theme/app_theme.dart';
-import '../../../data/models/reserva.dart';
+import '../../../data/models/qr_models.dart';
 import '../../../data/repositories/qr_repository.dart';
 import '../../state/providers.dart';
-import '../auth/login_screen.dart';
+import '../../widgets/app_drawer.dart';
+import '../../widgets/bottom_nav.dart';
+import 'dart:convert';
 
 class QRScannerScreen extends ConsumerStatefulWidget {
-  static const String routeName = '/qr';
+  static const String routeName = '/qr/scanner';
 
   const QRScannerScreen({super.key});
 
@@ -20,212 +19,82 @@ class QRScannerScreen extends ConsumerStatefulWidget {
 }
 
 class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
-  Reserva? currentReserva;
-  int? idPaseAcceso;
-  int? idPersonaOpe; // ID del operador/controlador
-  int? idSede; // ID de la sede
-  bool scanning = true;
-
-  final TextEditingController _qrController = TextEditingController();
-  final List<ScanResult> scanHistory = [];
-
-  // Control de escaneos duplicados
-  String? _lastScannedCode;
-  DateTime? _lastScanTime;
-
   final _qrRepository = QrRepository();
+  bool _scanning = true;
+  String? _lastCode;
+  DateTime? _lastScanTime;
+  final List<_ScanResult> _history = [];
 
-  @override
-  void initState() {
-    super.initState();
-    // Auth guard: redirect to login if not authenticated
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final auth = ref.read(authProvider);
-      if (!auth.isAuthenticated) {
-        Navigator.pushReplacementNamed(context, LoginScreen.routeName);
-        return;
-      }
-    });
-  }
+  PaseAccesoResumen? pase;
+  SedeAsignada? sede;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-
-    // Recibir argumentos de navegación
     final rawArgs = ModalRoute.of(context)?.settings.arguments;
     if (rawArgs is Map) {
       final args = Map<String, dynamic>.from(rawArgs);
-      currentReserva ??= args['reserva'] as Reserva?;
-      idPaseAcceso ??= args['idPaseAcceso'] as int?;
-      idPersonaOpe ??= args['idPersonaOpe'] as int?;
-      idSede ??= args['idSede'] as int?;
+      pase = args['pase'] as PaseAccesoResumen?;
+      sede = args['sede'] as SedeAsignada?;
     }
   }
 
-  @override
-  void dispose() {
-    _qrController.dispose();
-    super.dispose();
-  }
+  Future<void> _processScan(String qrCode) async {
+    if (qrCode.trim().isEmpty) return;
 
-  // Procesar el escaneo de un código QR
-  void _processScan(String qrCode) {
-    if (currentReserva == null || qrCode.trim().isEmpty) return;
-
-    // Evitar escaneos duplicados en menos de 2 segundos
     final now = DateTime.now();
-    if (_lastScannedCode == qrCode &&
+    if (_lastCode == qrCode &&
         _lastScanTime != null &&
         now.difference(_lastScanTime!).inSeconds < 2) {
-      return; // Ignorar escaneo duplicado
-    }
-
-    _lastScannedCode = qrCode;
-    _lastScanTime = now;
-
-    // Buscar el cliente por su código QR
-    final idx = currentReserva!.clientes.indexWhere((c) => c.qrCode == qrCode);
-
-    ScanResult result;
-
-    if (idx == -1) {
-      // QR no pertenece a esta reserva
-      result = ScanResult(
-        success: false,
-        message: 'QR no pertenece a esta reserva',
-        type: ScanType.error,
-      );
-      _showSnackBar('QR no pertenece a esta reserva', isError: true);
-    } else {
-      final cliente = currentReserva!.clientes[idx];
-
-      if (cliente.escaneado) {
-        // QR ya fue escaneado previamente
-        result = ScanResult(
-          success: false,
-          message: 'QR ya registrado',
-          type: ScanType.warning,
-          cliente: cliente,
-        );
-        _showSnackBar(
-          'QR ya registrado para ${cliente.nombre}',
-          isError: false,
-        );
-      } else {
-        // Registrar hora de escaneo
-        final hora =
-            '${now.hour.toString().padLeft(2, '0')}:'
-            '${now.minute.toString().padLeft(2, '0')}:'
-            '${now.second.toString().padLeft(2, '0')}';
-
-        // Actualizar cliente como escaneado
-        final updated = List<Cliente>.from(currentReserva!.clientes);
-        updated[idx] = cliente.copyWith(escaneado: true, horaEscaneo: hora);
-
-        setState(() {
-          currentReserva = currentReserva!.copyWith(clientes: updated);
-        });
-
-        result = ScanResult(
-          success: true,
-          message: 'Ingreso autorizado',
-          type: ScanType.success,
-          cliente: updated[idx],
-        );
-        _showSnackBar(
-          '✓ Ingreso autorizado: ${cliente.nombre}',
-          isError: false,
-        );
-      }
-    }
-
-    // Agregar al historial
-    setState(() {
-      scanHistory.insert(0, result);
-      _qrController.clear();
-    });
-  }
-
-  // Finalizar el proceso de escaneo
-  Future<void> _finalizarIngreso() async {
-    final total = currentReserva?.totalPersonas ?? 0;
-    final scanned =
-        currentReserva?.clientes.where((c) => c.escaneado).length ?? 0;
-
-    if (total == 0 || scanned < total) {
-      _showSnackBar(
-        'Aún faltan personas por escanear ($scanned/$total)',
-        isError: true,
-      );
       return;
     }
+    _lastCode = qrCode;
+    _lastScanTime = now;
 
-    // Mostrar diálogo de confirmación
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Finalizar ingreso'),
-        content: Text('¿Confirmar ingreso de $total personas?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Confirmar'),
-          ),
-        ],
-      ),
-    );
+    final auth = ref.read(authProvider);
+    final personaId = int.tryParse(auth.user?.personaId ?? '');
 
-    if (confirm != true) return;
-
-    // Mostrar loading
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
+    setState(() => _scanning = false);
 
     try {
-      // 1. Asegurar relación trabaja (operador-sede)
-      if (idPersonaOpe != null && idSede != null) {
-        await _qrRepository.ensureTrabaja(idPersonaOpe!, idSede!);
+      // Extraer codigoQR real si el payload es JSON
+      String codigoQrLimpio = qrCode;
+      try {
+        final decoded = jsonDecode(qrCode);
+        if (decoded is Map && decoded['codigo'] != null) {
+          codigoQrLimpio = decoded['codigo'].toString();
+        }
+      } catch (_) {
+        // no es JSON, usamos el raw
       }
 
-      // 2. Actualizar pase de acceso
-      if (idPaseAcceso != null) {
-        await _qrRepository.finalizarPaseAccesoUsos(
-          idPaseAcceso: idPaseAcceso!,
-          vecesUsado: total,
-          estado: 'USADO',
+      final res = await _qrRepository.validateQr(
+        qrCode: codigoQrLimpio,
+        accion: 'entrada',
+        idPersonaOpe: personaId,
+      );
+
+      final ok = res['valido'] == true;
+      final msg = res['mensaje']?.toString() ?? (ok ? 'Acceso permitido' : 'Acceso denegado');
+      final motivo = res['motivo']?.toString() ?? '';
+
+      setState(() {
+        _history.insert(
+          0,
+          _ScanResult(
+            code: qrCode,
+            success: ok,
+            message: '$msg${motivo.isNotEmpty ? ' ($motivo)' : ''}',
+            timestamp: DateTime.now(),
+          ),
         );
-      }
+      });
 
-      // 3. Crear registro de control (auditoría)
-      if (idPersonaOpe != null &&
-          idPaseAcceso != null &&
-          currentReserva != null) {
-        await _qrRepository.crearControla(
-          idPersonaOpe: idPersonaOpe!,
-          idReserva: int.parse(currentReserva!.id),
-          idPaseAcceso: idPaseAcceso!,
-          accion: 'entrada',
-          resultado: 'COMPLETADO_$total',
-        );
-      }
-
-      if (mounted) Navigator.pop(context); // Cerrar loading
-      _showSnackBar('✓ Ingreso completado y registrado');
-      if (mounted) {
-        // Regresar con la reserva actualizada
-        Navigator.pop(context, currentReserva);
-      }
+      _showSnackBar(msg, isError: !ok);
     } catch (e) {
-      if (mounted) Navigator.pop(context); // Cerrar loading
-      _showSnackBar('Error al finalizar: $e', isError: true);
+      _showSnackBar('Error al validar: $e', isError: true);
+    } finally {
+      if (mounted) setState(() => _scanning = true);
     }
   }
 
@@ -240,27 +109,9 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final total = currentReserva?.totalPersonas ?? 0;
-    final scanned =
-        currentReserva?.clientes.where((c) => c.escaneado).length ?? 0;
-    final pending = total - scanned;
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Escaneo de QR'),
-        leading: Builder(
-          builder: (ctx) {
-            final theme = Theme.of(context);
-            final bool isDark = theme.brightness == Brightness.dark;
-            final Color iconColor = isDark
-                ? Colors.white
-                : AppColors.neutral700;
-            return IconButton(
-              icon: Icon(Icons.menu, color: iconColor),
-              onPressed: () => Scaffold.of(ctx).openDrawer(),
-            );
-          },
-        ),
+        title: const Text('Escanear pase'),
       ),
       drawer: const AppDrawer(),
       bottomNavigationBar: const BottomNavBar(),
@@ -270,110 +121,32 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Información de la reserva
-              if (currentReserva != null)
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          currentReserva!.nombreReserva,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text('Cancha: ${currentReserva!.cancha}'),
-                        Text('Fecha: ${currentReserva!.fecha}'),
-                        Text('Hora: ${currentReserva!.hora}'),
-                      ],
-                    ),
-                  ),
-                ),
-
-              const SizedBox(height: 16),
-
-              // Resumen de escaneos
+              if (pase != null)
+                _PaseInfoCard(pase: pase!, sedeNombre: sede?.nombre),
+              const SizedBox(height: 12),
               Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Personas pendientes'),
-                          Text(
-                            '$pending de $total',
-                            style: Theme.of(context).textTheme.headlineMedium,
-                          ),
-                        ],
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          const Text('Escaneados'),
-                          Text(
-                            '$scanned',
-                            style: Theme.of(context).textTheme.headlineMedium
-                                ?.copyWith(color: Colors.green),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Barra de progreso
-              LinearProgressIndicator(
-                value: total == 0 ? 0 : scanned / total,
-                minHeight: 12,
-                backgroundColor: Colors.grey.shade300,
-                valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Visor de cámara
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                            'Visor de Cámara',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                          const Text('Visor de cámara', style: TextStyle(fontWeight: FontWeight.bold)),
                           Chip(
-                            label: Text(scanning ? 'Activo' : 'Detenido'),
-                            backgroundColor: scanning
-                                ? Colors.green.shade100
-                                : Colors.grey.shade300,
+                            label: Text(_scanning ? 'Activo' : 'Procesando'),
+                            backgroundColor:
+                                _scanning ? Colors.green.shade100 : Colors.orange.shade100,
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
-
-                      // Escáner QR
+                      const SizedBox(height: 8),
                       Container(
-                        height: 250,
+                        height: 260,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey),
+                          border: Border.all(color: Colors.grey.shade400),
                         ),
                         clipBehavior: Clip.antiAlias,
                         child: MobileScanner(
@@ -382,165 +155,98 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
                             torchEnabled: false,
                           ),
                           onDetect: (capture) {
-                            if (!scanning) return;
-
+                            if (!_scanning) return;
                             final barcodes = capture.barcodes;
                             if (barcodes.isEmpty) return;
-
                             final raw = barcodes.first.rawValue ?? '';
                             if (raw.isEmpty) return;
-
                             _processScan(raw);
                           },
                         ),
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      // Input manual
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _qrController,
-                              enabled: scanning,
-                              decoration: const InputDecoration(
-                                hintText: 'Código QR manual...',
-                                border: OutlineInputBorder(),
-                                isDense: true,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          ElevatedButton(
-                            onPressed:
-                                (!scanning || _qrController.text.trim().isEmpty)
-                                ? null
-                                : () => _processScan(_qrController.text),
-                            child: const Text('Escanear'),
-                          ),
-                        ],
                       ),
                     ],
                   ),
                 ),
               ),
-
-              const SizedBox(height: 16),
-
-              // Historial de escaneos
-              if (scanHistory.isNotEmpty)
+              const SizedBox(height: 12),
+              if (_history.isNotEmpty)
                 Card(
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(12),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Historial de Escaneos',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                        const Text('Historial', style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        ..._history.map(
+                          (h) => ListTile(
+                            dense: true,
+                            leading: Icon(
+                              h.success ? Icons.check_circle : Icons.error,
+                              color: h.success ? Colors.green : Colors.red,
+                            ),
+                            title: Text(h.message),
+                            subtitle: Text(h.timestamp.toLocal().toString()),
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        ...scanHistory.map((r) {
-                          Color color;
-                          IconData icon;
-                          switch (r.type) {
-                            case ScanType.success:
-                              color = Colors.green.shade100;
-                              icon = Icons.check_circle;
-                              break;
-                            case ScanType.warning:
-                              color = Colors.orange.shade100;
-                              icon = Icons.warning;
-                              break;
-                            case ScanType.error:
-                              color = Colors.red.shade100;
-                              icon = Icons.error;
-                              break;
-                          }
-
-                          return Container(
-                            margin: const EdgeInsets.symmetric(vertical: 4),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: color,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(icon, size: 20),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        r.cliente != null
-                                            ? r.cliente!.nombre
-                                            : r.message,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      if (r.cliente != null)
-                                        Text(
-                                          r.message,
-                                          style: const TextStyle(fontSize: 12),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                                if (r.cliente?.horaEscaneo != null)
-                                  Text(
-                                    r.cliente!.horaEscaneo!,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
                       ],
                     ),
                   ),
                 ),
-
-              const SizedBox(height: 16),
-
-              // Botones de acción
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => setState(() => scanning = !scanning),
-                      icon: Icon(scanning ? Icons.pause : Icons.play_arrow),
-                      label: Text(scanning ? 'Detener' : 'Reanudar'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: _finalizarIngreso,
-                      icon: const Icon(Icons.check),
-                      label: const Text('Finalizar'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
             ],
           ),
         ),
       ),
     );
   }
+}
+
+class _PaseInfoCard extends StatelessWidget {
+  final PaseAccesoResumen pase;
+  final String? sedeNombre;
+  const _PaseInfoCard({required this.pase, this.sedeNombre});
+
+  @override
+  Widget build(BuildContext context) {
+    final usos = '${pase.usados}/${pase.maximo}';
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              pase.canchaNombre ?? 'Cancha',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            if (sedeNombre != null) Text('Sede: $sedeNombre'),
+            if (pase.clienteCompleto.isNotEmpty) Text('Cliente: ${pase.clienteCompleto}'),
+            if (pase.iniciaEn != null && pase.terminaEn != null)
+              Text(
+                'Horario: ${pase.iniciaEn} - ${pase.terminaEn}',
+                style: const TextStyle(fontSize: 12),
+              ),
+            Text('Estado: ${pase.estado}'),
+            Text('Usos: $usos'),
+            if (pase.validoHasta != null)
+              Text('Válido hasta: ${pase.validoHasta}'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ScanResult {
+  final bool success;
+  final String message;
+  final DateTime timestamp;
+  final String code;
+
+  _ScanResult({
+    required this.success,
+    required this.message,
+    required this.timestamp,
+    required this.code,
+  });
 }

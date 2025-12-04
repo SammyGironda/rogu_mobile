@@ -5,7 +5,9 @@ import 'src/core/theme/app_theme.dart';
 import 'src/core/config/app_config.dart';
 import 'src/presentation/screens/splash_screen.dart';
 import 'src/presentation/screens/dashboard/dashboard_screen.dart';
+import 'src/presentation/screens/qr/qr_home_screen.dart';
 import 'src/presentation/screens/qr/qr_scanner_screen.dart';
+import 'src/presentation/screens/qr/qr_sede_pases_screen.dart';
 import 'src/presentation/screens/profile/user_profile_screen.dart';
 import 'src/presentation/screens/bookings/booking_form_screen.dart';
 import 'src/presentation/screens/bookings/booking_confirm_screen.dart';
@@ -51,7 +53,9 @@ class MyApp extends ConsumerWidget {
       routes: {
         SplashScreen.routeName: (context) => const SplashScreen(),
         DashboardScreen.routeName: (context) => const DashboardScreen(),
+        QrHomeScreen.routeName: (context) => const QrHomeScreen(),
         QRScannerScreen.routeName: (context) => const QRScannerScreen(),
+        QrSedePasesScreen.routeName: (context) => const QrSedePasesScreen(),
         UserProfileScreen.routeName: (context) => const UserProfileScreen(),
         BookingFormScreen.routeName: (context) => const BookingFormScreen(),
         BookingConfirmScreen.routeName: (context) =>
