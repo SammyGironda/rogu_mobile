@@ -36,4 +36,6 @@ flutter emulators --launch "NOMBRE DEL EMULADOR"
 flutter emulators
 
 flutter run -d emulator-5554
+flutter run -d ca54c7bc 23129RA5FL
+flutter run -d 23129RA5FL
 ```

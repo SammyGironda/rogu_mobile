@@ -76,4 +76,51 @@ class QrRepository {
     final b64 = base64Encode(bytes);
     return 'data:image/png;base64,$b64';
   }
+
+  /// Asegurar que el operador trabaja en la sede
+  Future<void> ensureTrabaja(int idPersonaOpe, int idSede) async {
+    try {
+      return await _qrApi.ensureTrabaja(idPersonaOpe, idSede);
+    } catch (e) {
+      throw Exception('Failed to ensure trabaja: $e');
+    }
+  }
+
+  /// Crear registro de control
+  Future<void> crearControla({
+    required int idPersonaOpe,
+    required int idReserva,
+    required int idPaseAcceso,
+    required String accion,
+    required String resultado,
+  }) async {
+    try {
+      return await _qrApi.crearControla(
+        idPersonaOpe: idPersonaOpe,
+        idReserva: idReserva,
+        idPaseAcceso: idPaseAcceso,
+        accion: accion,
+        resultado: resultado,
+      );
+    } catch (e) {
+      throw Exception('Failed to create controla: $e');
+    }
+  }
+
+  /// Finalizar pase de acceso (actualizar usos)
+  Future<void> finalizarPaseAccesoUsos({
+    required int idPaseAcceso,
+    required int vecesUsado,
+    required String estado,
+  }) async {
+    try {
+      return await _qrApi.finalizarPaseAccesoUsos(
+        idPaseAcceso: idPaseAcceso,
+        vecesUsado: vecesUsado,
+        estado: estado,
+      );
+    } catch (e) {
+      throw Exception('Failed to finalize pase acceso: $e');
+    }
+  }
 }

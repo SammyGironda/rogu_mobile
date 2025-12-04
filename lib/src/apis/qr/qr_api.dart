@@ -60,4 +60,60 @@ class QrApi {
       throw Exception('Get pass failed: ${response.body}');
     }
   }
+
+  /// Asegurar que el operador trabaja en la sede
+  Future<void> ensureTrabaja(int idPersonaOpe, int idSede) async {
+    // Verificar si ya existe
+    final uriGet = '/trabaja/$idPersonaOpe/$idSede';
+    final resGet = await _client.get(uriGet);
+
+    if (resGet.statusCode == 200) {
+      return; // Ya existe la relación
+    }
+
+    // Crear nueva relación
+    final body = {'idPersonaOpe': idPersonaOpe, 'idSede': idSede};
+    final resPost = await _client.post('/trabaja', body: body);
+
+    if (resPost.statusCode >= 200 && resPost.statusCode < 300) {
+      return;
+    }
+    throw Exception('Error ${resPost.statusCode} al crear trabaja');
+  }
+
+  /// Crear registro de control
+  Future<void> crearControla({
+    required int idPersonaOpe,
+    required int idReserva,
+    required int idPaseAcceso,
+    required String accion,
+    required String resultado,
+  }) async {
+    final body = {
+      'idPersonaOpe': idPersonaOpe,
+      'idReserva': idReserva,
+      'idPaseAcceso': idPaseAcceso,
+      'accion': accion,
+      'resultado': resultado,
+    };
+
+    final res = await _client.post('/controla', body: body);
+
+    if (res.statusCode >= 200 && res.statusCode < 300) return;
+    throw Exception('Error ${res.statusCode} al crear controla');
+  }
+
+  /// Finalizar pase de acceso (actualizar usos)
+  Future<void> finalizarPaseAccesoUsos({
+    required int idPaseAcceso,
+    required int vecesUsado,
+    required String estado,
+  }) async {
+    final body = {'vecesUsado': vecesUsado, 'estado': estado};
+
+    final res = await _client.patch('/pases-acceso/$idPaseAcceso', body: body);
+
+    if (res.statusCode >= 200 && res.statusCode < 300) return;
+    throw Exception('Error ${res.statusCode} al actualizar pase');
+  }
 }
