@@ -9,6 +9,7 @@ import 'reservation_detail_screen.dart';
 import '../../../data/models/reserva.dart' as model;
 import '../../../data/repositories/pending_reservations_repository.dart';
 import '../../state/providers.dart';
+import '../../../apis/deprecated/gestion_service.dart';
 
 class PendingReservationsScreen extends ConsumerStatefulWidget {
   static const String routeName = '/reservas/pendientes';
@@ -65,6 +66,57 @@ class _PendingReservationsScreenState extends ConsumerState<PendingReservationsS
         // Cargar desde API por sede
         _loadFromApi(_sedeId!);
       }
+    }
+
+    // Si no llegaron argumentos, resolver sede y rol desde el backend (dueño/controlador/admin)
+    if (_sedeId == null || _role == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        final auth = ref.read(authProvider);
+        final personaId = int.tryParse(auth.user?.personaId ?? '');
+        if (personaId == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No se pudo resolver tu persona')),
+          );
+          Navigator.pop(context);
+          return;
+        }
+        try {
+          // Usa servicio de gestión para obtener sede y rol efectivo
+          final result = await gestionService.resolveGestionEntryForPersona(personaId);
+          final sede = result['sede'];
+          final isAdmin = result['isAdmin'] == true;
+          final isOwner = result['isOwner'] == true;
+          final role = isAdmin ? 'ADMIN' : (isOwner ? 'DUENIO' : 'CONTROLADOR');
+          if (sede == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('No tienes sede asociada')),
+            );
+            Navigator.pop(context);
+            return;
+          }
+          // Validar rol permitido
+          const allowed = {'ADMIN', 'DUENIO', 'CONTROLADOR'};
+          if (!allowed.contains(role)) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('No autorizado: acceso solo para administradores, dueños y controladores')),
+            );
+            Navigator.pop(context);
+            return;
+          }
+          setState(() {
+            _sedeId = (sede['id'] as int?) ?? sede['idSede'] as int?;
+            _role = role;
+          });
+          if (_sedeId != null) {
+            _loadFromApi(_sedeId!);
+          }
+        } catch (e) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error resolviendo sede: ${e.toString()}')),
+          );
+          Navigator.pop(context);
+        }
+      });
     }
   }
 
