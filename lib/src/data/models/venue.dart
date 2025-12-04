@@ -1,4 +1,5 @@
 import 'field.dart';
+import '../../core/utils/image_helper.dart';
 
 class Venue {
   final int id;
@@ -39,7 +40,7 @@ class Venue {
       nombre: json['nombre'] ?? 'Sede',
       ciudad: json['ciudad']?.toString(),
       direccion: json['direccion']?.toString(),
-      fotoPrincipal: json['fotoPrincipal']?.toString(),
+      fotoPrincipal: resolveImageUrl(json['fotoPrincipal']?.toString()),
       descripcion: json['descripcion']?.toString(),
       propietario: (json['dueno'] ?? json['propietario'] ?? json['owner'])
           ?.toString(),

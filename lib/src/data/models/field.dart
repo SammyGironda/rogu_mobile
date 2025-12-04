@@ -1,3 +1,5 @@
+import '../../core/utils/image_helper.dart';
+
 class Field {
   final int id;
   final int sedeId;
@@ -50,11 +52,9 @@ class Field {
       reglasUso: json['reglasUso']?.toString(),
       precio: _toDouble(json['precio']),
       fotos: fotosRaw
-          .map(
-            (e) => (e is Map ? (e['urlFoto'] ?? e['url'] ?? '') : e.toString()),
-          )
+          .map((e) => (e is Map ? (e['urlFoto'] ?? e['url'] ?? '') : e.toString()))
           .where((e) => e.toString().isNotEmpty)
-          .cast<String>()
+          .map((e) => resolveImageUrl(e.toString()))
           .toList(),
       disciplinas: disciplinasRaw.map((e) => e.toString()).toList(),
       deporte: json['deporte']?.toString(),

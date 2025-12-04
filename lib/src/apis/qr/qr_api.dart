@@ -46,4 +46,18 @@ class QrApi {
       throw Exception('Get reservation passes failed: ${response.body}');
     }
   }
+
+  /// Obtener un pase de acceso por reserva (espera un solo pase)
+  Future<Map<String, dynamic>> getPassByReserva(int idReserva) async {
+    final response = await _client.get('/pases-acceso/reserva/$idReserva');
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data is List && data.isNotEmpty) return data.first;
+      if (data is Map<String, dynamic>) return data;
+      throw Exception('Pass not found for reserva $idReserva');
+    } else {
+      throw Exception('Get pass failed: ${response.body}');
+    }
+  }
 }

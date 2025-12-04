@@ -2,6 +2,11 @@
 
 ## Inicializar la APP
 
+```bash
+flutter doctor
+```
+
+
 ### Descargar dependencias
 ```
 flutter pub get
