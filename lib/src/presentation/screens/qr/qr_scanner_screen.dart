@@ -7,6 +7,7 @@ import '../../../data/repositories/qr_repository.dart';
 import '../../state/providers.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/bottom_nav.dart';
+import '../../screens/bookings/booking_history_screen.dart';
 import 'dart:convert';
 
 class QRScannerScreen extends ConsumerStatefulWidget {
@@ -91,6 +92,15 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
       });
 
       _showSnackBar(msg, isError: !ok);
+
+      // Si fue exitoso, ir al historial en la pestaña Completadas
+      if (ok && mounted) {
+        Navigator.pushReplacementNamed(
+          context,
+          BookingHistoryScreen.routeName,
+          arguments: {BookingHistoryScreen.initialTabArg: 'completed'},
+        );
+      }
     } catch (e) {
       _showSnackBar('Error al validar: $e', isError: true);
     } finally {

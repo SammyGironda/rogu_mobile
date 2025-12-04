@@ -71,24 +71,21 @@ class _BookingSuccessScreenState extends ConsumerState<BookingSuccessScreen> {
     final tx = state.transaction;
     final draft = _draft ?? state.draft;
     final code =
-        state.accessCode ??
+        state.accessCode ?? 
         'ROGU-${(draft?.reservationId ?? _transactionId ?? 0).toString().padLeft(4, '0')}';
     final slotsLabel =
-        draft?.slots
-            .map(
-              (s) =>
-                  '${s.startTime.substring(0, 5)} - ${s.endTime.substring(0, 5)}',
-            )
-            .join(', ') ??
-        '';
+        draft?.slots.isNotEmpty == true
+            ? '${draft!.slots.first.startTime.substring(0, 5)} - ${draft.slots.last.endTime.substring(0, 5)}'
+            : '';
     final dateStr = draft != null
-        ? '${draft.date.year.toString().padLeft(4, '0')}-${draft.date.month.toString().padLeft(2, '0')}-${draft.date.day.toString().padLeft(2, '0')}'
+        ? _formatDate(draft.date)
         : '';
+    final dateTimeLabel = draft != null && slotsLabel.isNotEmpty
+        ? '$dateStr $slotsLabel'
+        : dateStr;
     final qrUrl = state.qrDataUrl ?? tx?.ticketUrl ?? tx?.qrSimpleUrl;
     final paidAt = tx?.updatedAt ?? tx?.createdAt;
-    final paidStr = paidAt != null
-        ? '${paidAt.year.toString().padLeft(4, '0')}-${paidAt.month.toString().padLeft(2, '0')}-${paidAt.day.toString().padLeft(2, '0')} ${paidAt.hour.toString().padLeft(2, '0')}:${paidAt.minute.toString().padLeft(2, '0')}'
-        : null;
+    final paidStr = paidAt != null ? _formatDateTime(paidAt) : null;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Reserva confirmada')),
@@ -114,6 +111,7 @@ class _BookingSuccessScreenState extends ConsumerState<BookingSuccessScreen> {
                 draft: draft,
                 slotsLabel: slotsLabel,
                 dateStr: dateStr,
+                dateTimeLabel: dateTimeLabel,
                 code: code,
                 paidStr: paidStr,
                 amount: tx?.amount ?? draft?.totalAmount ?? 0,
@@ -331,6 +329,7 @@ Widget _detailsCard({
   required BookingDraft? draft,
   required String slotsLabel,
   required String dateStr,
+  required String dateTimeLabel,
   required String code,
   required String? paidStr,
   required double amount,
@@ -360,12 +359,16 @@ Widget _detailsCard({
         _InfoRow(label: 'Código', value: code),
         if (draft != null) _InfoRow(label: 'Cancha', value: draft.fieldName),
         if (draft != null) _InfoRow(label: 'Sede', value: draft.venueName),
-        if (draft != null) _InfoRow(label: 'Fecha', value: dateStr),
-        if (slotsLabel.isNotEmpty)
+        if (draft != null && slotsLabel.isNotEmpty) ...[
+          _InfoRow(label: 'Fecha y hora', value: dateTimeLabel),
+        ] else if (draft != null) ...[
+          _InfoRow(label: 'Fecha', value: dateStr),
+        ],
+        if (slotsLabel.isNotEmpty && draft == null)
           _InfoRow(label: 'Horarios', value: slotsLabel),
         if (draft != null)
           _InfoRow(label: 'Participantes', value: '${draft.players}'),
-        if (paidStr != null) _InfoRow(label: 'Fecha de pago', value: paidStr),
+        if (paidStr != null) _InfoRow(label: 'Fecha y hora de pago', value: paidStr),
         const SizedBox(height: 8),
         Container(
           width: double.infinity,
@@ -468,4 +471,12 @@ Future<void> _openUrl(String url) async {
   if (await canLaunchUrl(uri)) {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
+}
+
+String _formatDate(DateTime date) {
+  return '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+}
+
+String _formatDateTime(DateTime date) {
+  return '${_formatDate(date)} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
 }

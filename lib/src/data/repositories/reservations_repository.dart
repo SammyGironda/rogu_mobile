@@ -82,51 +82,72 @@ class ReservationsRepository {
   }
 
   /// Construir slots de tiempo disponibles/ocupados
-	List<ReservationSlot> buildSlots(
-		List<Map<String, dynamic>> existing, {
-		int inicioHora = 6,
-		int finHora = 22,
-		int intervaloMinutos = 60,
-	}) {
-		final slots = <ReservationSlot>[];
-		if (finHora <= inicioHora) return slots;
+  List<ReservationSlot> buildSlots(
+    List<Map<String, dynamic>> existing, {
+    int inicioHora = 6,
+    int finHora = 22,
+    int intervaloMinutos = 60,
+  }) {
+    return buildSlotsConfigured(
+      existing: existing,
+      apertura: '${inicioHora.toString().padLeft(2, '0')}:00',
+      cierre: '${finHora.toString().padLeft(2, '0')}:00',
+      intervaloMinutos: intervaloMinutos,
+    );
+  }
 
-		bool overlap(String start, String end, String slotStart, String slotEnd) {
-			return (start.compareTo(slotEnd) < 0) && (end.compareTo(slotStart) > 0);
-		}
+  List<ReservationSlot> buildSlotsConfigured({
+    required List<Map<String, dynamic>> existing,
+    required String apertura, // HH:mm
+    required String cierre, // HH:mm
+    int intervaloMinutos = 60,
+  }) {
+    final slots = <ReservationSlot>[];
 
-		DateTime current =
-			DateTime(0, 1, 1, inicioHora, 0);
-		final DateTime endBoundary =
-			DateTime(0, 1, 1, finHora, 0);
+    int? _toHour(String hhmm) {
+      final parts = hhmm.split(':');
+      if (parts.isEmpty) return null;
+      return int.tryParse(parts[0]);
+    }
 
-		while (current.isBefore(endBoundary)) {
-			final next = current.add(Duration(minutes: intervaloMinutos));
-			if (next.isAfter(endBoundary)) break;
-			final start = _formatTime(current);
-			final end = _formatTime(next);
-			final ocupado = existing.any(
-				(r) => overlap(
-					(r['horaInicio'] ?? r['iniciaEn'] ?? '').toString(),
-					(r['horaFin'] ?? r['terminaEn'] ?? '').toString(),
-					start,
-					end,
-				),
-			);
-			slots.add(
-				ReservationSlot(horaInicio: start, horaFin: end, ocupado: ocupado),
-			);
-			current = next;
-		}
-		slots.sort((a, b) => a.horaInicio.compareTo(b.horaInicio));
-		return slots;
-	}
+    int startH = _toHour(apertura) ?? 6;
+    int endH = _toHour(cierre) ?? 22;
+    if (endH <= startH) return slots;
 
-	String _formatTime(DateTime dt) {
-		final h = dt.hour.toString().padLeft(2, '0');
-		final m = dt.minute.toString().padLeft(2, '0');
-		return '$h:$m:00';
-	}
+    bool overlap(String start, String end, String slotStart, String slotEnd) {
+      return (start.compareTo(slotEnd) < 0) && (end.compareTo(slotStart) > 0);
+    }
+
+    DateTime current = DateTime(0, 1, 1, startH, 0);
+    final DateTime endBoundary = DateTime(0, 1, 1, endH, 0);
+
+    while (current.isBefore(endBoundary)) {
+      final next = current.add(Duration(minutes: intervaloMinutos));
+      if (next.isAfter(endBoundary)) break;
+      final start = _formatTime(current);
+      final end = _formatTime(next);
+      final ocupado = existing.any(
+        (r) => overlap(
+          (r['horaInicio'] ?? r['iniciaEn'] ?? '').toString(),
+          (r['horaFin'] ?? r['terminaEn'] ?? '').toString(),
+          start,
+          end,
+        ),
+      );
+      slots.add(
+        ReservationSlot(horaInicio: start, horaFin: end, ocupado: ocupado),
+      );
+      current = next;
+    }
+    slots.sort((a, b) => a.horaInicio.compareTo(b.horaInicio));
+    return slots;
+  }
+
+  String _formatTime(DateTime dt) {
+    final h = dt.hour.toString().padLeft(2, '0');
+    final m = dt.minute.toString().padLeft(2, '0');
+    return '$h:$m:00';
+  }
 }
 
 /// Modelo para slots de reserva

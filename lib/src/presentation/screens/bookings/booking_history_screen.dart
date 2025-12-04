@@ -20,10 +20,13 @@ final _historyProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>(
 );
 
 enum _BookingTab { all, pending, active, completed, cancelled }
+
 enum _BookingStatus { active, pending, completed, cancelled }
 
 class BookingHistoryScreen extends ConsumerStatefulWidget {
   static const String routeName = '/booking_history';
+  static const String initialTabArg =
+      'initialTab'; // 'all' | 'pending' | 'active' | 'completed' | 'cancelled'
   const BookingHistoryScreen({super.key});
 
   @override
@@ -31,10 +34,37 @@ class BookingHistoryScreen extends ConsumerStatefulWidget {
       _BookingHistoryScreenState();
 }
 
-class _BookingHistoryScreenState
-    extends ConsumerState<BookingHistoryScreen> {
+class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen> {
   _BookingTab _activeTab = _BookingTab.all;
   String _search = '';
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is Map && args[BookingHistoryScreen.initialTabArg] is String) {
+      final tabStr = (args[BookingHistoryScreen.initialTabArg] as String)
+          .toLowerCase();
+      switch (tabStr) {
+        case 'pending':
+          _activeTab = _BookingTab.pending;
+          break;
+        case 'active':
+        case 'confirmadas':
+          _activeTab = _BookingTab.active;
+          break;
+        case 'completed':
+        case 'completadas':
+          _activeTab = _BookingTab.completed;
+          break;
+        case 'cancelled':
+          _activeTab = _BookingTab.cancelled;
+          break;
+        default:
+          _activeTab = _BookingTab.all;
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -67,6 +97,7 @@ class _BookingHistoryScreenState
           error: (e, _) => Center(child: Text('Error: $e')),
           data: (reservas) {
             final bookings = reservas.map(_mapBooking).toList();
+            bookings.sort((a, b) => b.startDate.compareTo(a.startDate));
             final filtered = bookings.where(_filterBooking).toList();
 
             return RefreshIndicator(
@@ -74,9 +105,16 @@ class _BookingHistoryScreenState
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final isWide = constraints.maxWidth > 500;
-                  final horizontalPadding = isWide ? (constraints.maxWidth - 500) / 2 : 0.0;
+                  final horizontalPadding = isWide
+                      ? (constraints.maxWidth - 500) / 2
+                      : 0.0;
                   return ListView(
-                    padding: EdgeInsets.fromLTRB(16 + horizontalPadding, 12, 16 + horizontalPadding, 24),
+                    padding: EdgeInsets.fromLTRB(
+                      16 + horizontalPadding,
+                      12,
+                      16 + horizontalPadding,
+                      24,
+                    ),
                     children: [
                       _Tabs(
                         active: _activeTab,
@@ -105,7 +143,8 @@ class _BookingHistoryScreenState
 
   bool _filterBooking(BookingView b) {
     final term = _search.trim().toLowerCase();
-    final matches = term.isEmpty ||
+    final matches =
+        term.isEmpty ||
         b.fieldName.toLowerCase().contains(term) ||
         b.sedeName.toLowerCase().contains(term) ||
         b.code.toLowerCase().contains(term);
@@ -128,23 +167,71 @@ class _BookingHistoryScreenState
     final cancha = r['cancha'] as Map<String, dynamic>? ?? {};
     final sede = cancha['sede'] as Map<String, dynamic>? ?? {};
     final estadoRaw = (r['estado'] ?? '').toString().toUpperCase();
-    _BookingStatus status = _BookingStatus.active;
-    if (estadoRaw.contains('PENDIENTE')) status = _BookingStatus.pending;
-    if (estadoRaw.contains('CANCEL')) status = _BookingStatus.cancelled;
-    if (estadoRaw.contains('COMPLET') ||
-        estadoRaw.contains('APROB') ||
-        r['completadaEn'] != null) {
-      status = _BookingStatus.completed;
+
+    // Debug completo
+    print('═══════════════════════════════════════');
+    print('📋 RESERVA ${r['idReserva']}');
+    print('Estado raw: "$estadoRaw"');
+    print('completadaEn raw: ${r['completadaEn']}');
+    print('completadaEn tipo: ${r['completadaEn'].runtimeType}');
+    print('Cancha: ${cancha['nombre']}');
+    print('═══════════════════════════════════════');
+
+    // Verificar completadaEn de forma más robusta
+    final completadaEnRaw = r['completadaEn'];
+    bool tieneCompletadaEn = false;
+
+    if (completadaEnRaw != null &&
+        completadaEnRaw.toString().isNotEmpty &&
+        completadaEnRaw.toString() != 'null') {
+      try {
+        DateTime.parse(completadaEnRaw.toString());
+        tieneCompletadaEn = true;
+        print('✅ TIENE completadaEn válido');
+      } catch (_) {
+        print('❌ completadaEn no es fecha válida');
+      }
+    } else {
+      print('❌ completadaEn es null o vacío');
     }
 
-    DateTime fecha;
-    try {
-      fecha = DateTime.parse(r['fechaReserva'] ?? r['iniciaEn'] ?? r['fecha']);
-    } catch (_) {
-      fecha = DateTime.now();
+    // Determinar estado basado en completadaEn (validado en controla) o estado "Completada"
+    _BookingStatus status = _BookingStatus.active;
+
+    if (estadoRaw.contains('CANCEL')) {
+      status = _BookingStatus.cancelled;
+      print('🔴 Status: CANCELLED');
+    } else if (tieneCompletadaEn || estadoRaw.contains('COMPLETADA')) {
+      status = _BookingStatus.completed;
+      print('🟢 Status: COMPLETED ✅✅✅');
+    } else if (estadoRaw.contains('PENDIENTE')) {
+      status = _BookingStatus.pending;
+      print('🟡 Status: PENDING');
+    } else if (estadoRaw.contains('CONFIRMADA')) {
+      status = _BookingStatus.active;
+      print('🟢 Status: ACTIVE (confirmada)');
+    } else {
+      print('⚪ Status: DEFAULT (active)');
     }
-    final horaInicio = (r['horaInicio'] ?? '').toString().substring(0, 5);
-    final horaFin = (r['horaFin'] ?? '').toString().substring(0, 5);
+
+    DateTime startDate;
+    DateTime endDate;
+    try {
+      startDate = DateTime.parse(
+        r['iniciaEn'] ?? r['horaInicio'] ?? r['fecha'],
+      );
+    } catch (_) {
+      startDate = DateTime.now();
+    }
+    try {
+      endDate = DateTime.parse(r['terminaEn'] ?? r['horaFin'] ?? r['fecha']);
+    } catch (_) {
+      endDate = startDate.add(const Duration(hours: 1));
+    }
+    final horaInicio =
+        '${startDate.hour.toString().padLeft(2, '0')}:${startDate.minute.toString().padLeft(2, '0')}';
+    final horaFin =
+        '${endDate.hour.toString().padLeft(2, '0')}:${endDate.minute.toString().padLeft(2, '0')}';
     final monto = (r['montoTotal'] ?? r['monto'] ?? 0).toDouble();
     final fotos = cancha['fotos'] as List? ?? [];
     String? foto;
@@ -152,39 +239,53 @@ class _BookingHistoryScreenState
       final f0 = fotos.first;
       if (f0 is Map) {
         foto = resolveImageUrl(
-            (f0['urlFoto'] ?? f0['url'] ?? f0['imageUrl'] ?? f0['path'] ?? '')
-                .toString());
+          (f0['urlFoto'] ?? f0['url'] ?? f0['imageUrl'] ?? f0['path'] ?? '')
+              .toString(),
+        );
       } else {
         foto = resolveImageUrl(f0.toString());
       }
+    }
+
+    // Extraer fecha de creación con precisión
+    DateTime? createdAt;
+    try {
+      createdAt = DateTime.parse(r['creadoEn'] ?? r['createdAt'] ?? '');
+    } catch (_) {
+      createdAt = null;
     }
 
     return BookingView(
       id: r['idReserva'] ?? r['id'],
       fieldName: cancha['nombre']?.toString() ?? 'Cancha',
       sedeName: sede['nombre']?.toString() ?? 'Sede',
-      date: fecha,
+      date: startDate,
+      startDate: startDate,
+      endDate: endDate,
       timeSlot: '$horaInicio - $horaFin',
-      participants:
-          (r['cantidadPersonas'] ?? r['personas'] ?? 0).toString(),
+      participants: (r['cantidadPersonas'] ?? r['personas'] ?? 0).toString(),
       totalPaid: monto,
       status: status,
       code:
           'ROGU-${(r['idReserva'] ?? r['id'] ?? 0).toString().padLeft(6, '0')}',
-      sport: cancha['disciplina']?.toString() ??
+      sport:
+          cancha['disciplina']?.toString() ??
           cancha['deporte']?.toString() ??
           'DEPORTE',
       image: foto,
+      createdAt: createdAt,
     );
   }
-
 }
+
 class BookingView {
   BookingView({
     required this.id,
     required this.fieldName,
     required this.sedeName,
     required this.date,
+    required this.startDate,
+    required this.endDate,
     required this.timeSlot,
     required this.participants,
     required this.totalPaid,
@@ -192,12 +293,15 @@ class BookingView {
     required this.code,
     required this.sport,
     this.image,
+    this.createdAt,
   });
 
   final dynamic id;
   final String fieldName;
   final String sedeName;
   final DateTime date;
+  final DateTime startDate;
+  final DateTime endDate;
   final String timeSlot;
   final String participants;
   final double totalPaid;
@@ -205,6 +309,7 @@ class BookingView {
   final String code;
   final String sport;
   final String? image;
+  final DateTime? createdAt;
 }
 
 class _Tabs extends StatelessWidget {
@@ -305,7 +410,9 @@ class _BookingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final statusColor = _statusColor(booking.status);
     final dateStr =
-        '${booking.date.day} de ${_monthName(booking.date.month)} de ${booking.date.year}';
+        '${booking.startDate.day} de ${_monthName(booking.startDate.month)} de ${booking.startDate.year}';
+    final timeStr =
+        '${booking.startDate.hour.toString().padLeft(2, '0')}:${booking.startDate.minute.toString().padLeft(2, '0')} - ${booking.endDate.hour.toString().padLeft(2, '0')}:${booking.endDate.minute.toString().padLeft(2, '0')}';
 
     return InkWell(
       onTap: () {
@@ -327,7 +434,7 @@ class _BookingCard extends StatelessWidget {
               color: Colors.black.withOpacity(0.04),
               blurRadius: 10,
               offset: const Offset(0, 4),
-            )
+            ),
           ],
         ),
         child: Row(
@@ -349,7 +456,9 @@ class _BookingCard extends StatelessWidget {
                     right: 8,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 4),
+                        horizontal: 6,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: statusColor.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(10),
@@ -396,7 +505,7 @@ class _BookingCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-          booking.sedeName.toUpperCase(),
+                    booking.sedeName.toUpperCase(),
                     style: const TextStyle(
                       color: AppColors.neutral600,
                       fontSize: 12,
@@ -418,8 +527,11 @@ class _BookingCard extends StatelessWidget {
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      const Icon(Icons.calendar_today,
-                          size: 14, color: AppColors.neutral500),
+                      const Icon(
+                        Icons.calendar_today,
+                        size: 14,
+                        color: AppColors.neutral500,
+                      ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
@@ -436,19 +548,25 @@ class _BookingCard extends StatelessWidget {
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      const Icon(Icons.schedule,
-                          size: 14, color: AppColors.neutral500),
+                      const Icon(
+                        Icons.schedule,
+                        size: 14,
+                        color: AppColors.neutral500,
+                      ),
                       const SizedBox(width: 6),
                       Text(
-                        booking.timeSlot,
+                        timeStr,
                         style: const TextStyle(
                           color: AppColors.neutral600,
                           fontSize: 13,
                         ),
                       ),
                       const SizedBox(width: 12),
-                      const Icon(Icons.group,
-                          size: 14, color: AppColors.neutral500),
+                      const Icon(
+                        Icons.group,
+                        size: 14,
+                        color: AppColors.neutral500,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         '${booking.participants} pers.',
@@ -483,8 +601,11 @@ class _BookingCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 6),
-                const Icon(Icons.chevron_right,
-                    color: AppColors.neutral500, size: 20),
+                const Icon(
+                  Icons.chevron_right,
+                  color: AppColors.neutral500,
+                  size: 20,
+                ),
               ],
             ),
           ],
@@ -506,7 +627,7 @@ class _BookingCard extends StatelessWidget {
       'septiembre',
       'octubre',
       'noviembre',
-      'diciembre'
+      'diciembre',
     ];
     return months[(m - 1).clamp(0, 11)];
   }
@@ -528,8 +649,7 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.event_busy,
-              size: 36, color: AppColors.neutral400),
+          const Icon(Icons.event_busy, size: 36, color: AppColors.neutral400),
           const SizedBox(height: 8),
           Text(
             search.isEmpty
@@ -587,7 +707,9 @@ class BookingDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final statusColor = _statusColor(booking.status);
     final dateStr =
-        '${booking.date.day} de ${_monthName(booking.date.month)} de ${booking.date.year}';
+        '${booking.startDate.day} de ${_monthName(booking.startDate.month)} de ${booking.startDate.year}';
+    final timeStr =
+        '${booking.startDate.hour.toString().padLeft(2, '0')}:${booking.startDate.minute.toString().padLeft(2, '0')} - ${booking.endDate.hour.toString().padLeft(2, '0')}:${booking.endDate.minute.toString().padLeft(2, '0')}';
     final isActive = booking.status == _BookingStatus.active;
     final isPending = booking.status == _BookingStatus.pending;
 
@@ -601,8 +723,10 @@ class BookingDetailScreen extends StatelessWidget {
             children: [
               // Header
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 20,
+                ),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [Color(0xFF0F172A), Color(0xFF111827)],
@@ -632,7 +756,7 @@ class BookingDetailScreen extends StatelessWidget {
                         IconButton(
                           onPressed: () => Navigator.of(context).pop(),
                           icon: const Icon(Icons.close, color: Colors.white70),
-                        )
+                        ),
                       ],
                     ),
                     const SizedBox(height: 6),
@@ -686,13 +810,19 @@ class BookingDetailScreen extends StatelessWidget {
                         _InfoRow(
                           icon: Icons.access_time,
                           label: 'Horario',
-                          value: booking.timeSlot,
+                          value: timeStr,
                         ),
                         _InfoRow(
                           icon: Icons.group,
                           label: 'Participantes',
                           value: '${booking.participants} personas',
                         ),
+                        if (booking.createdAt != null)
+                          _InfoRow(
+                            icon: Icons.receipt_long,
+                            label: 'Reservado',
+                            value: _formatCreatedAt(booking.createdAt!),
+                          ),
                       ],
                     ),
                   ),
@@ -704,8 +834,7 @@ class BookingDetailScreen extends StatelessWidget {
                         _InfoRow(
                           icon: Icons.payments,
                           label: 'Monto total',
-                          value:
-                              'Bs ${booking.totalPaid.toStringAsFixed(2)}',
+                          value: 'Bs ${booking.totalPaid.toStringAsFixed(2)}',
                           bold: true,
                         ),
                         const _InfoRow(
@@ -719,13 +848,13 @@ class BookingDetailScreen extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 16),
+              // Botones de acción
               if (isPending)
                 ElevatedButton.icon(
                   onPressed: () {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content:
-                            Text('Implementar flujo de pago en móvil'),
+                        content: Text('Implementar flujo de pago en móvil'),
                       ),
                     );
                   },
@@ -740,11 +869,166 @@ class BookingDetailScreen extends StatelessWidget {
                     ),
                   ),
                 ),
+              // Botón cancelar para pendientes y confirmadas
+              if (isPending || isActive) ...[
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () => _showCancelDialog(context, booking),
+                  icon: const Icon(Icons.cancel_outlined),
+                  label: const Text('Cancelar Reserva'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red.shade700,
+                    side: BorderSide(color: Colors.red.shade300, width: 1.5),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
       ),
     );
+  }
+
+  String _formatCreatedAt(DateTime dt) {
+    final day = dt.day.toString().padLeft(2, '0');
+    final month = dt.month.toString().padLeft(2, '0');
+    final year = dt.year;
+    final hour = dt.hour.toString().padLeft(2, '0');
+    final minute = dt.minute.toString().padLeft(2, '0');
+    final second = dt.second.toString().padLeft(2, '0');
+    return '$day/$month/$year $hour:$minute:$second';
+  }
+
+  void _showCancelDialog(BuildContext context, BookingView booking) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text(
+          '¿Cancelar reserva?',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Estás a punto de cancelar tu reserva para:',
+              style: TextStyle(color: Colors.grey.shade700),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              booking.fieldName,
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+            ),
+            Text(
+              booking.sedeName,
+              style: TextStyle(color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
+                const SizedBox(width: 6),
+                Text(
+                  '${booking.startDate.day}/${booking.startDate.month}/${booking.startDate.year}',
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Icon(Icons.access_time, size: 16, color: Colors.grey),
+                const SizedBox(width: 6),
+                Text(booking.timeSlot),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded, color: Colors.red.shade700),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Esta acción no se puede deshacer',
+                      style: TextStyle(
+                        color: Colors.red.shade900,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('No, mantener'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              await _cancelReservation(context, booking);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Sí, cancelar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _cancelReservation(
+    BuildContext context,
+    BookingView booking,
+  ) async {
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => const Center(child: CircularProgressIndicator()),
+      );
+
+      final repo = ReservationsRepository();
+      await repo.cancelReservation(int.parse(booking.id.toString()));
+
+      if (!context.mounted) return;
+      Navigator.of(context).pop(); // Close loading
+      Navigator.of(context).pop(); // Close detail screen
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ Reserva cancelada exitosamente'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      Navigator.of(context).pop(); // Close loading
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Error al cancelar: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   String _monthName(int m) {
@@ -760,7 +1044,7 @@ class BookingDetailScreen extends StatelessWidget {
       'septiembre',
       'octubre',
       'noviembre',
-      'diciembre'
+      'diciembre',
     ];
     return months[(m - 1).clamp(0, 11)];
   }
@@ -785,14 +1069,14 @@ class _QRSectionState extends State<_QRSection> {
 
   Future<_QrResult> _loadQr() async {
     final repo = QrRepository();
-    final pass =
-        await repo.getPassByReserva(int.parse(widget.booking.id.toString()));
+    final pass = await repo.getPassByReserva(
+      int.parse(widget.booking.id.toString()),
+    );
     final idPase = pass['idPaseAcceso'] ?? pass['id'] ?? pass['idPase'];
     if (idPase == null) {
       throw Exception('No se encontró idPaseAcceso en la respuesta');
     }
-    final code =
-        pass['codigoAcceso'] ?? pass['codigo'] ?? widget.booking.code;
+    final code = pass['codigoAcceso'] ?? pass['codigo'] ?? widget.booking.code;
     final bytes = await repo.getQrImageBytes(idPase);
     return _QrResult(code: code.toString(), bytes: bytes);
   }
@@ -933,7 +1217,7 @@ class _InfoCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          ...rows
+          ...rows,
         ],
       ),
     );

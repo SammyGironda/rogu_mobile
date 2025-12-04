@@ -148,4 +148,29 @@ class QrRepository {
       throw Exception('Failed to get pases por sede: $e');
     }
   }
+
+  /// Obtener todos los registros de acceso (tabla controla) de una sede
+  Future<List<Map<String, dynamic>>> getAccessLogsBySede(int idSede) async {
+    final base = AppConfig.apiBaseUrl.replaceAll(RegExp(r'/api/?$'), '');
+    final url = '$base/api/controla/sede/$idSede';
+    final token = await StorageHelper.getToken();
+    final headers = <String, String>{'Content-Type': 'application/json'};
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+
+    final resp = await http.get(Uri.parse(url), headers: headers);
+
+    if (resp.statusCode != 200) {
+      throw Exception(
+        'Failed to load access logs (${resp.statusCode}): ${resp.body}',
+      );
+    }
+
+    final data = jsonDecode(resp.body);
+    if (data is List) {
+      return data.cast<Map<String, dynamic>>();
+    }
+    return [];
+  }
 }

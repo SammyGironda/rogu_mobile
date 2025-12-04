@@ -48,7 +48,14 @@ class SelectSlotScreen extends ConsumerWidget {
               error: (e, _) => Center(child: Text('Error: $e')),
               data: (reservas) {
                 final reservationsRepo = ReservationsRepository();
-                final slots = reservationsRepo.buildSlots(reservas);
+                final apertura = field.horaApertura ?? '06:00';
+                final cierre = field.horaCierre ?? '23:00';
+                final slots = reservationsRepo.buildSlotsConfigured(
+                  existing: reservas,
+                  apertura: apertura,
+                  cierre: cierre,
+                  intervaloMinutos: 60,
+                );
                 return ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
