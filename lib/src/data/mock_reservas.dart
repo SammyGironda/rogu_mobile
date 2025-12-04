@@ -7,6 +7,7 @@ final List<Reserva> mockReservas = [
     fecha: '2025-12-05',
     hora: '18:00',
     cancha: 'Cancha de Fútbol 5 - Principal',
+    sedeId: 1,
     estado: 'pendiente',
     totalPersonas: 10,
     clientes: [
@@ -28,6 +29,7 @@ final List<Reserva> mockReservas = [
     fecha: '2025-12-05',
     hora: '20:00',
     cancha: 'Cancha de Básquetbol - Norte',
+    sedeId: 1,
     estado: 'pendiente',
     totalPersonas: 8,
     clientes: [
@@ -47,6 +49,7 @@ final List<Reserva> mockReservas = [
     fecha: '2025-12-06',
     hora: '10:00',
     cancha: 'Cancha de Tenis - Court 1',
+    sedeId: 2,
     estado: 'pendiente',
     totalPersonas: 4,
     clientes: [
@@ -62,6 +65,7 @@ final List<Reserva> mockReservas = [
     fecha: '2025-12-06',
     hora: '16:00',
     cancha: 'Cancha de Vóley - Arena',
+    sedeId: 2,
     estado: 'pendiente',
     totalPersonas: 12,
     clientes: [

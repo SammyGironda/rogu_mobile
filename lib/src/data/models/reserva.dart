@@ -42,6 +42,7 @@ class Reserva {
   final String fecha; // ISO yyyy-MM-dd
   final String hora; // HH:mm
   final String cancha;
+  final int? sedeId; // ID de la sede a la que pertenece la cancha
   final List<Cliente> clientes;
   final String estado; // 'pendiente' | 'en_proceso' | 'completada'
   final int totalPersonas;
@@ -52,6 +53,7 @@ class Reserva {
     required this.fecha,
     required this.hora,
     required this.cancha,
+    this.sedeId,
     required this.clientes,
     required this.estado,
     required this.totalPersonas,
@@ -63,6 +65,7 @@ class Reserva {
     String? fecha,
     String? hora,
     String? cancha,
+    int? sedeId,
     List<Cliente>? clientes,
     String? estado,
     int? totalPersonas,
@@ -73,6 +76,7 @@ class Reserva {
       fecha: fecha ?? this.fecha,
       hora: hora ?? this.hora,
       cancha: cancha ?? this.cancha,
+      sedeId: sedeId ?? this.sedeId,
       clientes: clientes ?? this.clientes,
       estado: estado ?? this.estado,
       totalPersonas: totalPersonas ?? this.totalPersonas,

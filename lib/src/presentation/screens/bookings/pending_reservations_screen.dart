@@ -7,7 +7,8 @@ import '../../widgets/bottom_nav.dart';
 import '../qr/qr_scanner_screen.dart';
 import 'reservation_detail_screen.dart';
 import '../../../data/models/reserva.dart' as model;
-import '../../../data/mock_reservas.dart';
+import '../../../data/repositories/pending_reservations_repository.dart';
+import '../../state/providers.dart';
 
 class PendingReservationsScreen extends ConsumerStatefulWidget {
   static const String routeName = '/reservas/pendientes';
@@ -19,13 +20,67 @@ class PendingReservationsScreen extends ConsumerStatefulWidget {
 }
 
 class _PendingReservationsScreenState extends ConsumerState<PendingReservationsScreen> {
-  late List<model.Reserva> _reservas;
+  List<model.Reserva> _reservas = const [];
+  int? _sedeId;
+  String? _role;
+  final _repo = PendingReservationsRepository();
 
   @override
   void initState() {
     super.initState();
-    // Cargar mock de interfaz_qr
-    _reservas = mockReservas;
+    // Carga inicial vacía; se resolverá en didChangeDependencies
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Exigir sesión activa
+    final auth = ref.read(authProvider);
+    if (!auth.isAuthenticated) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Inicia sesión para ver reservas pendientes')),
+        );
+        Navigator.pushNamed(context, '/login');
+      });
+      return;
+    }
+    final rawArgs = ModalRoute.of(context)?.settings.arguments;
+    if (rawArgs is Map) {
+      final args = Map<String, dynamic>.from(rawArgs);
+      _sedeId = args['idSede'] as int?;
+      _role = args['role'] as String?;
+      // Role guard: only ADMIN, DUENIO, CONTROLADOR allowed
+      const allowed = {'ADMIN', 'DUENIO', 'CONTROLADOR'};
+      if (_role == null || !allowed.contains(_role)) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No autorizado: acceso solo para administradores, dueños y controladores')),
+          );
+          Navigator.pop(context);
+        });
+        return;
+      }
+      if (_sedeId != null) {
+        // Cargar desde API por sede
+        _loadFromApi(_sedeId!);
+      }
+    }
+  }
+
+  Future<void> _loadFromApi(int idSede) async {
+    try {
+      final data = await _repo.loadPendingBySede(idSede: idSede);
+      if (!mounted) return;
+      setState(() {
+        _reservas = data;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error cargando reservas: ${e.toString()}')),
+      );
+    }
   }
 
   void _openReservationDetail(model.Reserva reserva) {
@@ -43,7 +98,7 @@ class _PendingReservationsScreenState extends ConsumerState<PendingReservationsS
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Reservas Pendientes'),
+        title: const Text('Reservas en sede'),
         actions: [
           IconButton(
             icon: const Icon(Icons.qr_code_scanner),
@@ -67,10 +122,10 @@ class _PendingReservationsScreenState extends ConsumerState<PendingReservationsS
                         SizedBox(height: 8),
                         Icon(Icons.calendar_today, size: 48, color: AppColors.mutedForeground),
                         SizedBox(height: 12),
-                        Text('No hay reservas pendientes'),
+                        Text('No hay reservas en esta sede'),
                         SizedBox(height: 6),
                         Text(
-                          'Las reservas aparecerán aquí cuando estén disponibles',
+                          'Las reservas aparecerán aquí cuando estén disponibles para escanear su código QR.',
                           style: TextStyle(color: AppColors.mutedForeground),
                           textAlign: TextAlign.center,
                         ),

@@ -48,6 +48,50 @@ class AppDrawer extends ConsumerWidget {
             onTap: () => Navigator.pushNamed(context, '/booking_history'),
           ),
           ListTile(
+            leading: Icon(Icons.pending_actions, color: iconColor),
+            title: const Text('Reservas pendientes'),
+            onTap: () async {
+              final auth = ref.read(authProvider);
+              if (!auth.isAuthenticated) {
+                Navigator.pushNamed(context, LoginScreen.routeName);
+                return;
+              }
+              final personaIdStr = auth.user?.personaId;
+              final personaId = int.tryParse(personaIdStr ?? '');
+              if (personaId == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Falta persona asociada al usuario')),
+                );
+                return;
+              }
+              final result = await gestionService.resolveGestionEntryForPersona(personaId);
+              if (!context.mounted) return;
+              if (result['success'] != true) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(result['message']?.toString() ?? 'Acceso restringido')),
+                );
+                return;
+              }
+              final sede = result['sede'];
+              final isAdmin = result['isAdmin'] == true;
+              final isOwner = result['isOwner'] == true;
+              final role = isAdmin
+                  ? 'ADMIN'
+                  : (isOwner ? 'DUENIO' : 'CONTROLADOR');
+              if (sede == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('No tienes una sede asociada')),
+                );
+                return;
+              }
+              Navigator.pushNamed(
+                context,
+                '/reservas/pendientes',
+                arguments: {'idSede': sede['id'], 'role': role},
+              );
+            },
+          ),
+          ListTile(
             leading: Icon(Icons.event_available, color: iconColor),
             title: const Text('Gestion de canchas'),
             onTap: () async {

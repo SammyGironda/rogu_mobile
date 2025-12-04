@@ -22,7 +22,7 @@ class ReservationDetailScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Detalle de Reserva'),
+        title: const Text('Detalle de Reservas'),
         actions: [
           IconButton(
             icon: const Icon(Icons.qr_code_scanner),
@@ -64,7 +64,7 @@ class ReservationDetailScreen extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('Nombre de la Reserva', style: TextStyle(color: AppColors.mutedForeground, fontSize: 12)),
+                                const Text('Reservado por', style: TextStyle(color: AppColors.mutedForeground, fontSize: 12)),
                                 Text(reserva?.nombreReserva ?? '-', style: theme.textTheme.titleMedium),
                               ],
                             ),
@@ -87,7 +87,7 @@ class ReservationDetailScreen extends StatelessWidget {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Fecha', style: TextStyle(color: AppColors.mutedForeground, fontSize: 12)),
+                              const Text('Fecha de ingreso', style: TextStyle(color: AppColors.mutedForeground, fontSize: 12)),
                               Text(reserva?.fecha ?? '-'),
                             ],
                           ),
@@ -105,7 +105,7 @@ class ReservationDetailScreen extends StatelessWidget {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Hora', style: TextStyle(color: AppColors.mutedForeground, fontSize: 12)),
+                              const Text('Hora de ingreso', style: TextStyle(color: AppColors.mutedForeground, fontSize: 12)),
                               Text('${reserva?.hora ?? '-'} hrs'),
                             ],
                           ),
@@ -167,63 +167,7 @@ class ReservationDetailScreen extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-              Card(
-                color: AppColors.card,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Clientes Autorizados (${reserva?.totalPersonas ?? 0})'),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        height: 220,
-                        child: ListView.builder(
-                          itemCount: reserva?.clientes.length ?? 0,
-                          itemBuilder: (context, index) {
-                            final c = reserva!.clientes[index];
-                            final scanned = c.escaneado;
-                            return Container(
-                              margin: const EdgeInsets.symmetric(vertical: 6),
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: scanned ? AppColors.success.withOpacity(0.2) : AppColors.card,
-                                border: Border.all(color: scanned ? AppColors.success : AppColors.border),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                children: [
-                                  CircleAvatar(
-                                    backgroundColor: AppColors.primary500.withOpacity(0.1),
-                                    child: Text(c.nombre.isNotEmpty ? c.nombre[0] : '?', style: const TextStyle(color: AppColors.foreground)),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(c.nombre),
-                                        Text('Doc: ${c.documento}', style: const TextStyle(color: AppColors.mutedForeground, fontSize: 12)),
-                                      ],
-                                    ),
-                                  ),
-                                  if (scanned)
-                                    const Chip(
-                                      label: Text('Escaneado'),
-                                      backgroundColor: AppColors.success,
-                                      labelStyle: TextStyle(color: AppColors.successForeground),
-                                    ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              // Sección de clientes autorizados removida según requerimiento
             ],
           ),
         ),
