@@ -1,6 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'dart:convert';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../features/reservations/application/booking_success_controller.dart';
@@ -9,7 +11,7 @@ import '../../../features/reservations/models/booking_status.dart';
 import '../dashboard/dashboard_screen.dart';
 import 'booking_history_screen.dart';
 
-/// Step 5: final confirmation with access QR and booking details.
+/// Pantalla de éxito con QR de acceso y resumen completo.
 class BookingSuccessScreen extends ConsumerStatefulWidget {
   const BookingSuccessScreen({super.key});
 
@@ -96,126 +98,30 @@ class _BookingSuccessScreenState extends ConsumerState<BookingSuccessScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.neutral200),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 12,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    const Icon(
-                      Icons.check_circle,
-                      size: 48,
-                      color: Colors.green,
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Pago confirmado',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      (_status ?? tx?.status ?? BookingStatus.aprobada)
-                          .backendValue,
-                      style: const TextStyle(color: AppColors.neutral600),
-                    ),
-                  ],
-                ),
+              _heroSection(_status ?? tx?.status ?? BookingStatus.aprobada),
+              const SizedBox(height: 16),
+              _qrSection(
+                qrUrl: qrUrl,
+                code: code,
+                onDownload: qrUrl != null ? () => _openUrl(qrUrl) : null,
+                onShare: qrUrl != null ? () => _openUrl(qrUrl) : null,
               ),
               const SizedBox(height: 16),
-              if (qrUrl != null)
-                Center(
-                  child: Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppColors.neutral200),
-                    ),
-                    child: _buildQrWidget(qrUrl),
-                  ),
-                ),
-              const SizedBox(height: 16),
-              _InfoCard(
-                title: 'Detalles de la reserva',
-                rows: [
-                  _InfoRow(label: 'Código', value: code),
-                  if (draft != null)
-                    _InfoRow(label: 'Cancha', value: draft.fieldName),
-                  if (draft != null)
-                    _InfoRow(label: 'Sede', value: draft.venueName),
-                  if (draft != null) _InfoRow(label: 'Fecha', value: dateStr),
-                  if (slotsLabel.isNotEmpty)
-                    _InfoRow(label: 'Horarios', value: slotsLabel),
-                  if (draft != null)
-                    _InfoRow(label: 'Participantes', value: '${draft.players}'),
-                  if (paidStr != null)
-                    _InfoRow(label: 'Fecha de pago', value: paidStr),
-                  _InfoRow(
-                    label: 'Total pagado',
-                    value:
-                        'Bs ${(tx?.amount ?? draft?.totalAmount ?? 0).toStringAsFixed(2)}',
-                  ),
-                ],
+              if (paidStr != null)
+                _ValidityCard(validUntil: paidStr, people: draft?.players),
+              const SizedBox(height: 12),
+              _detailsCard(
+                draft: draft,
+                slotsLabel: slotsLabel,
+                dateStr: dateStr,
+                code: code,
+                paidStr: paidStr,
+                amount: tx?.amount ?? draft?.totalAmount ?? 0,
               ),
               const SizedBox(height: 12),
-              _InfoCard(
-                title: 'Información importante',
-                rows: const [
-                  _InfoRow(
-                    label: 'Presenta tu QR',
-                    value:
-                        'Muestra este código en la entrada para acceder a la cancha.',
-                  ),
-                  _InfoRow(
-                    label: 'No compartas',
-                    value:
-                        'Evita compartir tu código con terceros no autorizados.',
-                  ),
-                ],
-              ),
+              _infoImportantCard(),
               const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () => Navigator.pushNamedAndRemoveUntil(
-                  context,
-                  DashboardScreen.routeName,
-                  (route) => false,
-                ),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                child: const Text('Volver al inicio'),
-              ),
-              const SizedBox(height: 10),
-              OutlinedButton(
-                onPressed: () => Navigator.pushNamed(
-                  context,
-                  BookingHistoryScreen.routeName,
-                ),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  side: const BorderSide(color: AppColors.neutral300),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                child: const Text('Ver mis reservas'),
-              ),
+              _actionsFooter(context),
               if (state.isLoading) ...[
                 const SizedBox(height: 12),
                 const Center(child: CircularProgressIndicator()),
@@ -227,38 +133,6 @@ class _BookingSuccessScreenState extends ConsumerState<BookingSuccessScreen> {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _InfoCard extends StatelessWidget {
-  const _InfoCard({required this.title, required this.rows});
-  final String title;
-  final List<_InfoRow> rows;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.neutral200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontWeight: FontWeight.w800,
-              color: AppColors.neutral800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          ...rows,
-        ],
       ),
     );
   }
@@ -310,7 +184,7 @@ Widget _buildQrWidget(String qrUrl) {
       final bytes = base64Decode(base64Part);
       return Image.memory(bytes, width: 220, height: 220, fit: BoxFit.contain);
     } catch (_) {
-      // fallback to network try
+      // fall through to network
     }
   }
   return Image.network(
@@ -320,4 +194,278 @@ Widget _buildQrWidget(String qrUrl) {
     fit: BoxFit.contain,
     errorBuilder: (_, __, ___) => const Text('QR de acceso no disponible'),
   );
+}
+
+Widget _heroSection(BookingStatus status) {
+  return Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: AppColors.primary50,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: AppColors.primary200),
+    ),
+    child: Column(
+      children: [
+        const Icon(Icons.check_circle, size: 48, color: Colors.green),
+        const SizedBox(height: 8),
+        const Text(
+          '¡Pago confirmado!',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          status.backendValue,
+          style: const TextStyle(color: AppColors.neutral600),
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _qrSection({
+  required String? qrUrl,
+  required String code,
+  VoidCallback? onDownload,
+  VoidCallback? onShare,
+}) {
+  return Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: AppColors.neutral200),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.05),
+          blurRadius: 12,
+          offset: const Offset(0, 6),
+        ),
+      ],
+    ),
+    child: Column(
+      children: [
+        const Text(
+          'Código de acceso',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Presenta este QR en la entrada',
+          style: TextStyle(color: AppColors.neutral600),
+        ),
+        const SizedBox(height: 12),
+        if (qrUrl != null)
+          _buildQrWidget(qrUrl)
+        else
+          const Text('QR de acceso no disponible'),
+        const SizedBox(height: 8),
+        Text(
+          code,
+          style: const TextStyle(
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.6,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton(
+                onPressed: onDownload,
+                child: const Text('Descargar QR'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton(
+                onPressed: onShare,
+                child: const Text('Compartir'),
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
+
+class _ValidityCard extends StatelessWidget {
+  const _ValidityCard({this.validUntil, this.people});
+  final String? validUntil;
+  final int? people;
+
+  @override
+  Widget build(BuildContext context) {
+    if (validUntil == null && people == null) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7E6),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFFE4B5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Tiempo de validez',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          if (validUntil != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text('Válido hasta: $validUntil'),
+            ),
+          if (people != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text('Válido para: $people personas'),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+Widget _detailsCard({
+  required BookingDraft? draft,
+  required String slotsLabel,
+  required String dateStr,
+  required String code,
+  required String? paidStr,
+  required double amount,
+}) {
+  return Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: AppColors.neutral200),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.04),
+          blurRadius: 10,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Detalles de la reserva',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 12),
+        _InfoRow(label: 'Código', value: code),
+        if (draft != null) _InfoRow(label: 'Cancha', value: draft.fieldName),
+        if (draft != null) _InfoRow(label: 'Sede', value: draft.venueName),
+        if (draft != null) _InfoRow(label: 'Fecha', value: dateStr),
+        if (slotsLabel.isNotEmpty)
+          _InfoRow(label: 'Horarios', value: slotsLabel),
+        if (draft != null)
+          _InfoRow(label: 'Participantes', value: '${draft.players}'),
+        if (paidStr != null) _InfoRow(label: 'Fecha de pago', value: paidStr),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE8FBF1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Total pagado',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.neutral800,
+                ),
+              ),
+              Text(
+                'Bs ${amount.toStringAsFixed(2)}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  color: Colors.green,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _infoImportantCard() {
+  return Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: const Color(0xFFFDF0FF),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: const Color(0xFFEACBFF)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: const [
+        Text(
+          'Información importante',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
+        SizedBox(height: 8),
+        _InfoRow(
+          label: 'Presenta tu QR',
+          value: 'Muestra este código en la entrada para acceder a la cancha.',
+        ),
+        _InfoRow(
+          label: 'No compartas',
+          value: 'Evita compartir tu código con terceros no autorizados.',
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _actionsFooter(BuildContext context) {
+  return Column(
+    children: [
+      ElevatedButton(
+        onPressed: () => Navigator.pushNamedAndRemoveUntil(
+          context,
+          DashboardScreen.routeName,
+          (route) => false,
+        ),
+        style: ElevatedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+        child: const Text('Volver al inicio'),
+      ),
+      const SizedBox(height: 10),
+      OutlinedButton(
+        onPressed: () =>
+            Navigator.pushNamed(context, BookingHistoryScreen.routeName),
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          side: const BorderSide(color: AppColors.neutral300),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+        child: const Text('Ver mis reservas'),
+      ),
+    ],
+  );
+}
+
+Future<void> _openUrl(String url) async {
+  final uri = Uri.parse(url);
+  if (await canLaunchUrl(uri)) {
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
 }
