@@ -238,9 +238,7 @@ class _VenueTile extends StatelessWidget {
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
-                      venue.direccion ??
-                          venue.ciudad ??
-                          'Ubicacion no disponible',
+                      venue.getShortLocation(),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall,

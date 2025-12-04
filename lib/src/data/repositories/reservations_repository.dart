@@ -82,36 +82,51 @@ class ReservationsRepository {
   }
 
   /// Construir slots de tiempo disponibles/ocupados
-  List<ReservationSlot> buildSlots(
-    List<Map<String, dynamic>> existing, {
-    int inicioHora = 6,
-    int finHora = 24,
-  }) {
-    final slots = <ReservationSlot>[];
+	List<ReservationSlot> buildSlots(
+		List<Map<String, dynamic>> existing, {
+		int inicioHora = 6,
+		int finHora = 22,
+		int intervaloMinutos = 60,
+	}) {
+		final slots = <ReservationSlot>[];
+		if (finHora <= inicioHora) return slots;
 
-    bool overlap(String start, String end, String slotStart, String slotEnd) {
-      return (start.compareTo(slotEnd) < 0) && (end.compareTo(slotStart) > 0);
-    }
+		bool overlap(String start, String end, String slotStart, String slotEnd) {
+			return (start.compareTo(slotEnd) < 0) && (end.compareTo(slotStart) > 0);
+		}
 
-    for (int h = inicioHora; h < finHora; h++) {
-      final start = _formatHour(h);
-      final end = _formatHour(h + 1);
-      final ocupado = existing.any(
-        (r) => overlap(
-          r['horaInicio'] as String,
-          r['horaFin'] as String,
-          start,
-          end,
-        ),
-      );
-      slots.add(
-        ReservationSlot(horaInicio: start, horaFin: end, ocupado: ocupado),
-      );
-    }
-    return slots;
-  }
+		DateTime current =
+			DateTime(0, 1, 1, inicioHora, 0);
+		final DateTime endBoundary =
+			DateTime(0, 1, 1, finHora, 0);
 
-  String _formatHour(int hour) => hour.toString().padLeft(2, '0') + ':00:00';
+		while (current.isBefore(endBoundary)) {
+			final next = current.add(Duration(minutes: intervaloMinutos));
+			if (next.isAfter(endBoundary)) break;
+			final start = _formatTime(current);
+			final end = _formatTime(next);
+			final ocupado = existing.any(
+				(r) => overlap(
+					(r['horaInicio'] ?? r['iniciaEn'] ?? '').toString(),
+					(r['horaFin'] ?? r['terminaEn'] ?? '').toString(),
+					start,
+					end,
+				),
+			);
+			slots.add(
+				ReservationSlot(horaInicio: start, horaFin: end, ocupado: ocupado),
+			);
+			current = next;
+		}
+		slots.sort((a, b) => a.horaInicio.compareTo(b.horaInicio));
+		return slots;
+	}
+
+	String _formatTime(DateTime dt) {
+		final h = dt.hour.toString().padLeft(2, '0');
+		final m = dt.minute.toString().padLeft(2, '0');
+		return '$h:$m:00';
+	}
 }
 
 /// Modelo para slots de reserva

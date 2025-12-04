@@ -9,6 +9,7 @@ import '../../../presentation/screens/auth/login_screen.dart';
 import '../../../presentation/state/providers.dart';
 import '../../../presentation/widgets/app_drawer.dart';
 import '../../../presentation/widgets/bottom_nav.dart';
+import 'venue_detail_screen.dart';
 
 class VenuesScreen extends ConsumerStatefulWidget {
 	static const String routeName = '/venues';
@@ -74,7 +75,7 @@ class _VenuesScreenState extends ConsumerState<VenuesScreen> {
 							style: theme.textTheme.bodyMedium,
 						),
 						const SizedBox(height: 16),
-						_VenueList(state: state, controller: controller),
+						_VenueList(state: state),
 					],
 				),
 			),
@@ -106,7 +107,6 @@ class _VenuesPreviewSectionState
 	@override
 	Widget build(BuildContext context) {
 		final state = ref.watch(venuesControllerProvider);
-		final controller = ref.read(venuesControllerProvider.notifier);
 		final theme = Theme.of(context);
 		final List<Venue> previewVenues =
 			state.venues.take(4).toList(growable: false);
@@ -148,32 +148,42 @@ class _VenuesPreviewSectionState
 					Column(
 						children: previewVenues
 							.map(
-								(v) => VenueCard(
-									venue: v,
-									fields: state.fieldsByVenue[v.id] ?? const [],
-									expanded: state.expandedVenueId == v.id,
-									loadingFields: state.loadingFieldsFor == v.id,
-									onToggle: () => controller.toggleExpanded(v.id),
-								),
+								(v) {
+									final fieldsCount =
+										state.fieldsByVenue[v.id]?.length ??
+										v.canchas.length;
+									return VenueCard(
+										venue: v,
+										fieldsCount: fieldsCount,
+										onTap: () => Navigator.pushNamed(
+											context,
+											VenueDetailScreen.routeName,
+											arguments: v.id,
+										),
+									);
+								},
 							)
 							.toList(),
 					),
-				if (state.venues.length > 4)
+				if (state.venues.isNotEmpty)
 					Padding(
-						padding: const EdgeInsets.only(top: 6),
+						padding: const EdgeInsets.only(top: 10),
 						child: Align(
 							alignment: Alignment.center,
-							child: OutlinedButton.icon(
-								style: OutlinedButton.styleFrom(
+							child: ElevatedButton.icon(
+								style: ElevatedButton.styleFrom(
 									padding: const EdgeInsets.symmetric(
-										horizontal: 18,
+										horizontal: 20,
 										vertical: 12,
+									),
+									shape: RoundedRectangleBorder(
+										borderRadius: BorderRadius.circular(12),
 									),
 								),
 								onPressed: () =>
 									Navigator.pushNamed(context, VenuesScreen.routeName),
 								icon: const Icon(Icons.list_alt),
-								label: const Text('Ver todas'),
+								label: const Text('Ver mas sedes'),
 							),
 						),
 					),
@@ -185,11 +195,9 @@ class _VenuesPreviewSectionState
 class _VenueList extends StatelessWidget {
 	const _VenueList({
 		required this.state,
-		required this.controller,
 	});
 
 	final VenuesState state;
-	final VenuesController controller;
 
 	@override
 	Widget build(BuildContext context) {
@@ -221,12 +229,16 @@ class _VenueList extends StatelessWidget {
 			separatorBuilder: (_, __) => const SizedBox(height: 12),
 			itemBuilder: (context, index) {
 				final v = state.venues[index];
+				final fieldsCount =
+					state.fieldsByVenue[v.id]?.length ?? v.canchas.length;
 				return VenueCard(
 					venue: v,
-					fields: state.fieldsByVenue[v.id] ?? const [],
-					expanded: state.expandedVenueId == v.id,
-					loadingFields: state.loadingFieldsFor == v.id,
-					onToggle: () => controller.toggleExpanded(v.id),
+					fieldsCount: fieldsCount,
+					onTap: () => Navigator.pushNamed(
+						context,
+						VenueDetailScreen.routeName,
+						arguments: v.id,
+					),
 				);
 			},
 		);
