@@ -5,7 +5,6 @@ import '../../core/theme/app_theme.dart';
 import '../state/providers.dart';
 import '../screens/auth/login_screen.dart';
 
-/// Reusable BottomNavigationBar that maps fixed indices to named routes.
 class BottomNavBar extends ConsumerWidget {
   const BottomNavBar({super.key});
 
@@ -17,12 +16,6 @@ class BottomNavBar extends ConsumerWidget {
     '/profile',
   ];
 
-  int _currentIndexFromRoute(String? routeName) {
-    if (routeName == null) return 0;
-    final idx = _routeNames.indexOf(routeName);
-    return idx < 0 ? 0 : idx;
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
@@ -31,79 +24,142 @@ class BottomNavBar extends ConsumerWidget {
     final Color unselectedColor = isDark
         ? Colors.white70
         : AppColors.neutral500;
+    final auth = ref.watch(authProvider);
+    final profileRepo = ref.read(profileRepositoryProvider);
 
     final String? currentRoute = ModalRoute.of(context)?.settings.name;
-    final int currentIndex = _currentIndexFromRoute(currentRoute);
 
-    return BottomNavigationBar(
-      currentIndex: currentIndex,
-      onTap: (idx) async {
-        final String dest = _routeNames[idx];
-        if (dest == '/new-reservation') {
-          // Gating for Gestión section from bottom nav index 2
-          final auth = ref.read(authProvider);
-          if (!auth.isAuthenticated) {
-            Navigator.pushNamed(context, LoginScreen.routeName);
-            return;
-          }
-          final personaId = auth.user?.personaId;
-          if (personaId == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Error: Usuario sin persona asociada'),
-              ),
-            );
-            return;
-          }
+    return FutureBuilder<List<String>>(
+      future: () async {
+        if (!auth.isAuthenticated) return const ['CLIENTE'];
+        try {
+          final profile = await profileRepo.fetchProfile();
+          return profile.roles;
+        } catch (_) {
+          return const ['CLIENTE'];
+        }
+      }(),
+      builder: (context, snapshot) {
+        final roles = snapshot.data ?? const ['CLIENTE'];
+        final isCliente = roles.contains('CLIENTE');
+        final isControlador = roles.contains('CONTROLADOR');
+        final isAdminOrOwner =
+            roles.contains('ADMIN') || roles.contains('DUENIO');
 
-          // Verificar roles usando ProfileRepository
-          try {
-            final profileRepo = ref.read(profileRepositoryProvider);
-            final roles = await profileRepo.checkUserRoles(personaId);
-            final isOwner = roles['isOwner'] == true;
-            final isAdmin = roles['isAdmin'] == true;
+        // Build active routes and items based on roles
+        final activeRoutes = <String>[];
+        final items = <BottomNavigationBarItem>[];
 
-            if (!context.mounted) return;
+        // Dashboard
+        activeRoutes.add(_routeNames[0]);
+        items.add(
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.dashboard),
+            label: 'Inicio',
+          ),
+        );
 
-            if (!(isOwner || isAdmin)) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    'Acceso restringido a dueños o administradores',
+        // Historial only for clientes
+        if (isCliente) {
+          activeRoutes.add(_routeNames[1]);
+          items.add(
+            const BottomNavigationBarItem(
+              icon: Icon(Icons.history),
+              label: 'Historial',
+            ),
+          );
+        }
+
+        // Gestion solo admin/duenio
+        if (isAdminOrOwner) {
+          activeRoutes.add(_routeNames[2]);
+          items.add(
+            const BottomNavigationBarItem(
+              icon: Icon(Icons.event_available),
+              label: 'Gestionar',
+            ),
+          );
+        }
+
+        // QR solo controlador
+        if (isControlador) {
+          activeRoutes.add(_routeNames[3]);
+          items.add(
+            const BottomNavigationBarItem(
+              icon: Icon(Icons.qr_code),
+              label: 'QR',
+            ),
+          );
+        }
+
+        // Perfil
+        activeRoutes.add(_routeNames[4]);
+        items.add(
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Perfil',
+          ),
+        );
+
+        final effectiveIndex = activeRoutes.indexOf(currentRoute ?? '');
+        final currentIndex = effectiveIndex >= 0 ? effectiveIndex : 0;
+
+        return BottomNavigationBar(
+          currentIndex: currentIndex,
+          selectedItemColor: selectedColor,
+          unselectedItemColor: unselectedColor,
+          type: BottomNavigationBarType.fixed,
+          items: items,
+          onTap: (idx) async {
+            final destRoute = activeRoutes[idx];
+            if (destRoute == '/new-reservation') {
+              final authState = ref.read(authProvider);
+              if (!authState.isAuthenticated) {
+                Navigator.pushNamed(context, LoginScreen.routeName);
+                return;
+              }
+              final personaId = authState.user?.personaId;
+              if (personaId == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Error: Usuario sin persona asociada'),
                   ),
-                ),
-              );
+                );
+                return;
+              }
+              try {
+                final rolesMap = await profileRepo.checkUserRoles(personaId);
+                final isOwner = rolesMap['isOwner'] == true;
+                final isAdmin = rolesMap['isAdmin'] == true;
+                if (!context.mounted) return;
+                if (!(isOwner || isAdmin)) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Acceso restringido a dueños o administradores',
+                      ),
+                    ),
+                  );
+                  return;
+                }
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Funcionalidad en desarrollo')),
+                );
+              } catch (e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('Error: $e')));
+              }
               return;
             }
 
-            // TODO: Implementar pantalla de gestión de sedes cuando esté disponible
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Funcionalidad en desarrollo')),
-            );
-          } catch (e) {
-            if (!context.mounted) return;
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text('Error: $e')));
-          }
-          return;
-        }
-        if (dest != currentRoute) {
-          Navigator.pushReplacementNamed(context, dest);
-        }
+            if (destRoute != currentRoute) {
+              Navigator.pushReplacementNamed(context, destRoute);
+            }
+          },
+        );
       },
-      selectedItemColor: selectedColor,
-      unselectedItemColor: unselectedColor,
-      items: const [
-        BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Inicio'),
-        BottomNavigationBarItem(icon: Icon(Icons.history), label: 'Historial'),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.event_available),
-          label: 'Gestionar',
-        ),
-        BottomNavigationBarItem(icon: Icon(Icons.qr_code), label: 'QR'),
-        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Perfil'),
-      ],
     );
   }
 }

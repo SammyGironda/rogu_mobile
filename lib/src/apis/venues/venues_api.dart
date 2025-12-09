@@ -24,8 +24,17 @@ class VenuesApi {
     final response = await _client.get('/sede/$idSede');
 
     if (response.statusCode == 200) {
-      return jsonDecode(response.body);
+      final data = jsonDecode(response.body);
+      if (data is Map && data['sede'] is Map<String, dynamic>) {
+        return data['sede'] as Map<String, dynamic>;
+      }
+      if (data is Map<String, dynamic>) {
+        return data;
+      }
+      print('Get venue unexpected payload: $data');
+      throw Exception('Get venue failed: unexpected payload');
     } else {
+      print('Get venue failed status=${response.statusCode} body=${response.body}');
       throw Exception('Get venue failed: ${response.body}');
     }
   }
@@ -51,6 +60,9 @@ class VenuesApi {
       }
       return [];
     } else {
+      print(
+        'Get venue fields failed status=${response.statusCode} body=${response.body}',
+      );
       throw Exception('Get venue fields failed: ${response.body}');
     }
   }

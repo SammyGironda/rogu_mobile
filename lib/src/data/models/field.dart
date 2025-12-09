@@ -1,3 +1,5 @@
+import '../../core/utils/image_helper.dart';
+
 class Field {
   final int id;
   final int sedeId;
@@ -7,10 +9,13 @@ class Field {
   final bool? cubierta;
   final bool? iluminacion;
   final bool? techada;
-  final int? aforoMaximo;
-  final String? dimensiones;
-  final String? reglasUso;
-  final double? precio;
+	final int? aforoMaximo;
+	final String? dimensiones;
+	final String? reglasUso;
+	final double? precio;
+	final String? horaApertura;
+	final String? horaCierre;
+	final int? maxPlayers;
   final List<String> fotos;
   final List<String>? disciplinas;
   final String? deporte;
@@ -28,13 +33,22 @@ class Field {
     this.dimensiones,
     this.reglasUso,
     this.precio,
+		this.horaApertura,
+		this.horaCierre,
+		this.maxPlayers,
     required this.fotos,
     this.disciplinas,
     this.deporte,
   });
 
   factory Field.fromJson(Map<String, dynamic> json) {
-    final fotosRaw = json['fotos'] as List? ?? [];
+		final fotosRaw =
+				json['fotos'] ??
+				json['imagenes'] ??
+				json['images'] ??
+				json['photos'] ??
+				[];
+		final fotoPrincipal = json['fotoPrincipal']?.toString();
     final disciplinasRaw = json['disciplinas'] as List? ?? [];
     return Field(
       id: json['idCancha'] ?? json['id'] ?? 0,
@@ -49,13 +63,29 @@ class Field {
       dimensiones: json['dimensiones']?.toString(),
       reglasUso: json['reglasUso']?.toString(),
       precio: _toDouble(json['precio']),
-      fotos: fotosRaw
-          .map(
-            (e) => (e is Map ? (e['urlFoto'] ?? e['url'] ?? '') : e.toString()),
-          )
-          .where((e) => e.toString().isNotEmpty)
-          .cast<String>()
-          .toList(),
+			horaApertura: json['horaApertura']?.toString(),
+			horaCierre: json['horaCierre']?.toString(),
+			maxPlayers: json['maxPlayers'] ??
+					json['capacidad'] ??
+					json['aforo'] ??
+					json['maxJugadores'],
+			fotos: [
+				...fotosRaw
+					.map(
+						(e) => (e is Map
+								? (e['urlFoto'] ??
+										e['url'] ??
+										e['foto'] ??
+										e['path'] ??
+										e['imagen'])
+								: e.toString()),
+					)
+					.where((e) => e.toString().isNotEmpty)
+					.map((e) => resolveImageUrl(e.toString()))
+					.toList(),
+				if ((fotoPrincipal ?? '').isNotEmpty)
+					resolveImageUrl(fotoPrincipal!),
+			],
       disciplinas: disciplinasRaw.map((e) => e.toString()).toList(),
       deporte: json['deporte']?.toString(),
     );
