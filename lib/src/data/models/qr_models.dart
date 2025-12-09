@@ -44,6 +44,7 @@ class PaseAccesoResumen {
   final DateTime? iniciaEn;
   final DateTime? terminaEn;
   final String? codigoQR;
+  final String? foto;
 
   PaseAccesoResumen({
     required this.idPaseAcceso,
@@ -62,7 +63,34 @@ class PaseAccesoResumen {
     this.iniciaEn,
     this.terminaEn,
     this.codigoQR,
+    this.foto,
   });
+
+  PaseAccesoResumen copyWith({
+    int? usados,
+    int? maximo,
+    String? estado,
+  }) {
+    return PaseAccesoResumen(
+      idPaseAcceso: idPaseAcceso,
+      idReserva: idReserva,
+      estado: estado ?? this.estado,
+      validoDesde: validoDesde,
+      validoHasta: validoHasta,
+      usados: usados ?? this.usados,
+      maximo: maximo ?? this.maximo,
+      idCancha: idCancha,
+      canchaNombre: canchaNombre,
+      idSede: idSede,
+      sedeNombre: sedeNombre,
+      clienteNombre: clienteNombre,
+      clienteApellido: clienteApellido,
+      iniciaEn: iniciaEn,
+      terminaEn: terminaEn,
+      codigoQR: codigoQR,
+      foto: foto,
+    );
+  }
 
   factory PaseAccesoResumen.fromJson(Map<String, dynamic> json) {
     final usos = json['usos'] as Map<String, dynamic>? ?? {};
@@ -107,6 +135,7 @@ class PaseAccesoResumen {
           ? DateTime.tryParse(horario['terminaEn'].toString())
           : null,
       codigoQR: json['codigoQR']?.toString(),
+      foto: cancha['foto']?.toString(),
     );
   }
 

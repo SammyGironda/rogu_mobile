@@ -234,12 +234,13 @@ class SelectSlotScreen extends ConsumerWidget {
       }
 
       final reservationsRepo = ReservationsRepository();
+      final capacidad = field.aforoMaximo ?? field.maxPlayers ?? 10;
       final resp = await reservationsRepo.createReservation(
         idCliente: int.parse(authState.user!.id),
         idCancha: field.id,
         inicia: start,
         termina: end,
-        cantidadPersonas: 10,
+        cantidadPersonas: capacidad,
         requiereAprobacion: false,
         montoBase: _calculateTotal(selected.length),
         montoExtra: 0,

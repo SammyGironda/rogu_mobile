@@ -30,13 +30,21 @@ class _BookingFormScreenState extends ConsumerState<BookingFormScreen> {
 		super.dispose();
 	}
 
-	Widget _buildPlayers(
+ Widget _buildPlayers(
 		BookingFormState state,
 		BookingFormController controller,
 		ThemeData theme,
+		Field? field,
 	) {
 		const int minPlayers = 1;
-		final int maxPlayers = state.maxPlayers > 0 ? state.maxPlayers : 10;
+		final int effectiveMax =
+				field?.maxPlayers ?? field?.aforoMaximo ?? state.maxPlayers;
+		final int maxPlayers = effectiveMax > 0 ? effectiveMax : 10;
+		if (state.players > maxPlayers) {
+			WidgetsBinding.instance.addPostFrameCallback((_) {
+				controller.setPlayers(maxPlayers, maxOverride: maxPlayers);
+			});
+		}
 		return Card(
 			shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
 			elevation: 2,
@@ -50,7 +58,10 @@ class _BookingFormScreenState extends ConsumerState<BookingFormScreen> {
 							children: [
 								IconButton(
 									onPressed: state.players > minPlayers
-											? () => controller.setPlayers(state.players - 1)
+											? () => controller.setPlayers(
+													state.players - 1,
+													maxOverride: maxPlayers,
+												)
 											: null,
 									icon: const Icon(Icons.remove),
 								),
@@ -60,7 +71,10 @@ class _BookingFormScreenState extends ConsumerState<BookingFormScreen> {
 								),
 								IconButton(
 									onPressed: state.players < maxPlayers
-											? () => controller.setPlayers(state.players + 1)
+											? () => controller.setPlayers(
+													state.players + 1,
+													maxOverride: maxPlayers,
+												)
 											: () {
 												ScaffoldMessenger.of(context).showSnackBar(
 													SnackBar(
@@ -165,7 +179,7 @@ class _BookingFormScreenState extends ConsumerState<BookingFormScreen> {
 						const SizedBox(height: 16),
 						_buildSlots(state, controller, theme, isDark),
 						const SizedBox(height: 16),
-						_buildPlayers(state, controller, theme),
+						_buildPlayers(state, controller, theme, field),
 						const SizedBox(height: 16),
 						_buildSummary(state, field, theme),
 						const SizedBox(height: 16),

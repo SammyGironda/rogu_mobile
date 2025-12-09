@@ -220,11 +220,15 @@ class BookingFormController extends StateNotifier<BookingFormState> {
 	}
 
 	Future<void> selectField(int fieldId) async {
+		final maxForField = _maxPlayersForField(fieldId);
+		final clampedPlayers =
+				(state.players > maxForField && maxForField > 0) ? maxForField : state.players;
 		state = state.copyWith(
 			selectedFieldId: fieldId,
 			selectedSlots: const [],
 			slots: const [],
-			maxPlayers: _maxPlayersForField(fieldId),
+			maxPlayers: maxForField,
+			players: clampedPlayers,
 			loadingSlots: true,
 			clearError: true,
 		);
@@ -283,8 +287,9 @@ class BookingFormController extends StateNotifier<BookingFormState> {
 		state = state.copyWith(selectedSlots: [slot], clearError: true);
 	}
 
-	void setPlayers(int value) {
-		final max = state.maxPlayers > 0 ? state.maxPlayers : 10;
+	void setPlayers(int value, {int? maxOverride}) {
+		final maxCap = maxOverride ?? state.maxPlayers;
+		final max = maxCap > 0 ? maxCap : 10;
 		if (value < 1) {
 			state = state.copyWith(players: 1);
 			return;
@@ -390,6 +395,18 @@ class BookingFormController extends StateNotifier<BookingFormState> {
 				? initialFieldId
 				: (fields.isNotEmpty ? fields.first.id : null);
 
+			final selectedField = selectedFieldId != null
+					? fields.firstWhere((f) => f.id == selectedFieldId)
+					: null;
+			final maxPlayersSelected = _maxPlayersForField(
+				selectedFieldId,
+				fieldsOverride: fields,
+				fieldOverride: selectedField,
+			);
+			final clampedPlayers = (state.players > maxPlayersSelected && maxPlayersSelected > 0)
+					? maxPlayersSelected
+					: state.players;
+
 			List<ReservationSlot> slots = <ReservationSlot>[];
 			if (selectedFieldId != null) {
 				final selectedField = fields.firstWhere((f) => f.id == selectedFieldId);
@@ -403,9 +420,8 @@ class BookingFormController extends StateNotifier<BookingFormState> {
 				selectedVenueId: selectedVenueId,
 				selectedFieldId: selectedFieldId,
 				selectedSlots: const [],
-				maxPlayers: selectedFieldId != null
-						? _maxPlayersForField(selectedFieldId)
-						: 10,
+				maxPlayers: maxPlayersSelected,
+				players: clampedPlayers,
 				loadingVenues: false,
 				loadingSlots: false,
 			);
@@ -422,13 +438,23 @@ class BookingFormController extends StateNotifier<BookingFormState> {
 		try {
 			final fields = await _repository.fetchFields(venueId);
 			final selectedFieldId = fields.isNotEmpty ? fields.first.id : null;
+			final selectedField =
+					selectedFieldId != null
+							? fields.firstWhere((f) => f.id == selectedFieldId)
+							: null;
+			final maxForField = _maxPlayersForField(
+				selectedFieldId,
+				fieldsOverride: fields,
+				fieldOverride: selectedField,
+			);
 			state = state.copyWith(
 				fields: fields,
 				selectedFieldId: selectedFieldId,
 				loadingSlots: true,
-				maxPlayers: selectedFieldId != null
-						? _maxPlayersForField(selectedFieldId)
-						: 10,
+				maxPlayers: maxForField,
+				players: (state.players > maxForField && maxForField > 0)
+						? maxForField
+						: state.players,
 			);
 			if (selectedFieldId != null) {
 				await _loadSlots(selectedFieldId, state.selectedDate);
@@ -504,8 +530,18 @@ class BookingFormController extends StateNotifier<BookingFormState> {
 		return pricePerHour * (duration.inMinutes / 60);
 	}
 
-	int _maxPlayersForField(int fieldId) {
-		final field = state.fields.firstWhere(
+	int _maxPlayersForField(
+		int? fieldId, {
+		List<Field>? fieldsOverride,
+		Field? fieldOverride,
+	}) {
+		if (fieldOverride != null) {
+			final maxCap = fieldOverride.maxPlayers ?? fieldOverride.aforoMaximo;
+			if (maxCap != null && maxCap > 0) return maxCap;
+		}
+		if (fieldId == null) return 10;
+		final fields = fieldsOverride ?? state.fields;
+		final field = fields.firstWhere(
 			(f) => f.id == fieldId,
 			orElse: () => Field(
 				id: fieldId,
@@ -514,7 +550,7 @@ class BookingFormController extends StateNotifier<BookingFormState> {
 				fotos: const [],
 			),
 		);
-		final max = field.maxPlayers;
+		final max = field.maxPlayers ?? field.aforoMaximo;
 		if (max == null || max <= 0) return 10;
 		return max;
 	}

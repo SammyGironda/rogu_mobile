@@ -50,6 +50,20 @@ class Field {
 				[];
 		final fotoPrincipal = json['fotoPrincipal']?.toString();
     final disciplinasRaw = json['disciplinas'] as List? ?? [];
+    final capacity = _toInt(
+      json['capacity'] ??
+          json['capacidad'] ??
+          json['capacidadPersonas'] ??
+          json['capacidad_personas'] ??
+          json['capacidadMaxima'] ??
+          json['maximoPersonas'] ??
+          json['maximoJugadores'] ??
+          json['limiteJugadores'] ??
+          json['aforo_max'] ??
+          json['capacidadJugadores'] ??
+          json['jugadores'] ??
+          json['people'],
+    );
     return Field(
       id: json['idCancha'] ?? json['id'] ?? 0,
       sedeId: json['idSede'] ?? json['sedeId'] ?? 0,
@@ -59,21 +73,31 @@ class Field {
       cubierta: _toBool(json['cubierta']),
       iluminacion: _toBool(json['iluminacion']),
       techada: _toBool(json['techada']),
-      aforoMaximo: _toInt(json['aforoMax'] ?? json['aforoMaximo']),
       dimensiones: json['dimensiones']?.toString(),
       reglasUso: json['reglasUso']?.toString(),
       precio: _toDouble(json['precio']),
 			horaApertura: json['horaApertura']?.toString(),
 			horaCierre: json['horaCierre']?.toString(),
-			maxPlayers: json['maxPlayers'] ??
-					json['capacidad'] ??
-					json['aforo'] ??
-					json['maxJugadores'],
-			fotos: [
-				...fotosRaw
-					.map(
-						(e) => (e is Map
-								? (e['urlFoto'] ??
+			maxPlayers: _toInt(
+            json['maxPlayers'] ??
+            json['capacidad'] ??
+            json['capacidadPersonas'] ??
+            json['capacidad_personas'] ??
+            json['capacidadMaxima'] ??
+            json['maximoPersonas'] ??
+            json['maximoJugadores'] ??
+            json['limiteJugadores'] ??
+            json['aforo'] ??
+            json['maxJugadores'] ??
+            json['aforoMax'] ??
+            json['aforoMaximo'] ??
+            capacity,
+          ),
+      fotos: [
+        ...fotosRaw
+          .map(
+            (e) => (e is Map
+                ? (e['urlFoto'] ??
 										e['url'] ??
 										e['foto'] ??
 										e['path'] ??
@@ -82,10 +106,17 @@ class Field {
 					)
 					.where((e) => e.toString().isNotEmpty)
 					.map((e) => resolveImageUrl(e.toString()))
-					.toList(),
+          .toList(),
 				if ((fotoPrincipal ?? '').isNotEmpty)
 					resolveImageUrl(fotoPrincipal!),
 			],
+      aforoMaximo: _toInt(
+        json['aforoMax'] ??
+            json['aforo_max'] ??
+            json['aforoMaximo'] ??
+            json['capacidadMaxima'] ??
+            capacity,
+      ),
       disciplinas: disciplinasRaw.map((e) => e.toString()).toList(),
       deporte: json['deporte']?.toString(),
     );

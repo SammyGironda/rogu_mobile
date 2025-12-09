@@ -1,4 +1,5 @@
 import '../../apis/venues/venues_api.dart';
+import '../../apis/venues/fields_api.dart';
 import '../models/venue.dart';
 import '../models/field.dart';
 
@@ -35,9 +36,35 @@ class VenuesRepository {
   Future<List<Field>> getVenueFields(int idSede, {String? deporte}) async {
     try {
       final data = await _venuesApi.getVenueFields(idSede, deporte: deporte);
-      return data
+      List<Field> fields = data
           .map((e) => Field.fromJson(e as Map<String, dynamic>))
           .toList();
+
+      // Completar aforo/capacidad y fotos usando detalle de cancha cuando falte
+      final needsDetail = fields.where((f) {
+        final missingCapacity = (f.maxPlayers ?? f.aforoMaximo) == null;
+        final missingPhotos = f.fotos.isEmpty;
+        return missingCapacity || missingPhotos;
+      }).toList();
+
+      if (needsDetail.isNotEmpty) {
+        final fieldsApi = FieldsApi();
+        for (final f in needsDetail) {
+          try {
+            final detail = await fieldsApi.getField(f.id);
+            final detailField = Field.fromJson(detail);
+            final merged = _mergeFieldData(f, detailField);
+            final idx = fields.indexWhere((x) => x.id == f.id);
+            if (idx != -1) {
+              fields[idx] = merged;
+            }
+          } catch (_) {
+            // Ignorar si falla el detalle y continuar con los datos actuales
+          }
+        }
+      }
+
+      return fields;
     } catch (e) {
       throw Exception('Failed to get venue fields: $e');
     }
@@ -86,5 +113,30 @@ class VenuesRepository {
     } catch (e) {
       throw Exception('Failed to get venue by persona: $e');
     }
+  }
+
+  Field _mergeFieldData(Field base, Field detail) {
+    return Field(
+      id: base.id != 0 ? base.id : detail.id,
+      sedeId: base.sedeId != 0 ? base.sedeId : detail.sedeId,
+      nombre: base.nombre.isNotEmpty ? base.nombre : detail.nombre,
+      descripcion: base.descripcion ?? detail.descripcion,
+      superficie: base.superficie ?? detail.superficie,
+      cubierta: base.cubierta ?? detail.cubierta,
+      iluminacion: base.iluminacion ?? detail.iluminacion,
+      techada: base.techada ?? detail.techada,
+      aforoMaximo: detail.aforoMaximo ?? base.aforoMaximo,
+      dimensiones: base.dimensiones ?? detail.dimensiones,
+      reglasUso: base.reglasUso ?? detail.reglasUso,
+      precio: base.precio ?? detail.precio,
+      horaApertura: base.horaApertura ?? detail.horaApertura,
+      horaCierre: base.horaCierre ?? detail.horaCierre,
+      maxPlayers: detail.maxPlayers ?? base.maxPlayers,
+      fotos: base.fotos.isNotEmpty ? base.fotos : detail.fotos,
+      disciplinas: (base.disciplinas != null && base.disciplinas!.isNotEmpty)
+          ? base.disciplinas
+          : detail.disciplinas,
+      deporte: base.deporte ?? detail.deporte,
+    );
   }
 }

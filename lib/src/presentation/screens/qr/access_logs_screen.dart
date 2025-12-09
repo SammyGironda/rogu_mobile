@@ -168,6 +168,8 @@ class _AccessLogCard extends StatelessWidget {
     final controlador = log['controlador'] as Map<String, dynamic>?;
     final cliente = log['cliente'] as Map<String, dynamic>?;
     final cancha = log['cancha'] as Map<String, dynamic>?;
+    final asistenteNombre = log['nombreAsistente']?.toString();
+    final tipoAsistente = log['tipoAsistente']?.toString();
 
     return Card(
       elevation: 2,
@@ -259,6 +261,15 @@ class _AccessLogCard extends StatelessWidget {
                 label: 'Horario reserva',
                 value:
                     '${_formatHora(log['iniciaEn'])} - ${_formatHora(log['terminaEn'])}',
+              ),
+            ],
+            if (asistenteNombre != null || tipoAsistente != null) ...[
+              const SizedBox(height: 8),
+              _DetailRow(
+                icon: Icons.badge,
+                label: 'Asistente',
+                value:
+                    '${asistenteNombre ?? 'Desconocido'}${tipoAsistente != null ? ' ($tipoAsistente)' : ''}',
               ),
             ],
           ],

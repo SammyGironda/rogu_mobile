@@ -5,10 +5,12 @@ import '../../../core/utils/image_helper.dart';
 import 'dart:typed_data';
 import '../../../data/repositories/reservations_repository.dart';
 import '../../../data/repositories/qr_repository.dart';
+import '../../../data/repositories/participa_repository.dart';
 import '../../state/providers.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/bottom_nav.dart';
 import '../auth/login_screen.dart';
+import 'invite_participants_screen.dart';
 
 final _historyProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>(
   (ref) async {
@@ -16,9 +18,10 @@ final _historyProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>(
     if (authState.user == null) return [];
     final reservationsRepo = ReservationsRepository();
     final user = authState.user!;
-    final personaId = int.tryParse(user.personaId ?? '');
-    final idConsulta = personaId ?? int.parse(user.id);
-    return reservationsRepo.getUserReservations(idConsulta);
+    // Siempre consultamos por idUsuario (backend espera id de usuario, no persona/cliente)
+    final idUsuario = int.tryParse(user.id) ?? int.tryParse(user.personaId ?? '');
+    if (idUsuario == null) return [];
+    return reservationsRepo.getUserReservations(idUsuario);
   },
 );
 
@@ -219,12 +222,14 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen> {
     try {
       startDate = DateTime.parse(
         r['iniciaEn'] ?? r['horaInicio'] ?? r['fecha'],
-      );
+      ).toLocal();
     } catch (_) {
       startDate = DateTime.now();
     }
     try {
-      endDate = DateTime.parse(r['terminaEn'] ?? r['horaFin'] ?? r['fecha']);
+      endDate = DateTime.parse(
+        r['terminaEn'] ?? r['horaFin'] ?? r['fecha'],
+      ).toLocal();
     } catch (_) {
       endDate = startDate.add(const Duration(hours: 1));
     }
@@ -250,7 +255,8 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen> {
     // Extraer fecha de creación con precisión
     DateTime? createdAt;
     try {
-      createdAt = DateTime.parse(r['creadoEn'] ?? r['createdAt'] ?? '');
+      createdAt =
+          DateTime.parse(r['creadoEn'] ?? r['createdAt'] ?? '').toLocal();
     } catch (_) {
       createdAt = null;
     }
@@ -562,11 +568,15 @@ class _BookingCard extends StatelessWidget {
                         color: AppColors.neutral500,
                       ),
                       const SizedBox(width: 6),
-                      Text(
-                        timeStr,
-                        style: const TextStyle(
-                          color: AppColors.neutral600,
-                          fontSize: 13,
+                      Expanded(
+                        child: Text(
+                          timeStr,
+                          style: const TextStyle(
+                            color: AppColors.neutral600,
+                            fontSize: 13,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          softWrap: false,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -576,11 +586,15 @@ class _BookingCard extends StatelessWidget {
                         color: AppColors.neutral500,
                       ),
                       const SizedBox(width: 6),
-                      Text(
-                        '${booking.participants} pers.',
-                        style: const TextStyle(
-                          color: AppColors.neutral600,
-                          fontSize: 13,
+                      Flexible(
+                        child: Text(
+                          '${booking.participants} pers.',
+                          style: const TextStyle(
+                            color: AppColors.neutral600,
+                            fontSize: 13,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          softWrap: false,
                         ),
                       ),
                     ],
@@ -889,13 +903,36 @@ class BookingDetailScreen extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 16),
-              // Botones de acción
+              // Botones de accion
+              if (isActive) ...[
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => InviteParticipantsScreen(
+                          idReserva: int.parse(booking.id.toString()),
+                          cancha: booking.fieldName,
+                          sede: booking.sedeName,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.group_add),
+                  label: const Text('Invitar personas'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary600,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
               if (isPending)
                 ElevatedButton.icon(
                   onPressed: () {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Implementar flujo de pago en móvil'),
+                        content: Text('Implementar flujo de pago en mvil'),
                       ),
                     );
                   },
@@ -910,7 +947,7 @@ class BookingDetailScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-              // Botón cancelar para pendientes y confirmadas
+              // Bot3d0n cancelar para pendientes y confirmadas
               if (isPending || isActive) ...[
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
@@ -927,6 +964,8 @@ class BookingDetailScreen extends StatelessWidget {
                   ),
                 ),
               ],
+              const SizedBox(height: 16),
+              _ParticipantsCard(reservaId: int.parse(booking.id.toString())),
             ],
           ),
         ),
@@ -1318,5 +1357,112 @@ class _InfoRow extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _ParticipantsCard extends StatelessWidget {
+  const _ParticipantsCard({required this.reservaId});
+  final int reservaId;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Map<String, dynamic>>(
+      future: ParticipaRepository().getParticipantes(reservaId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError || !snapshot.hasData) {
+          return Card(
+            color: Colors.red.shade50,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Text(
+                'No se pudieron cargar los participantes',
+                style: TextStyle(color: Colors.red.shade700),
+              ),
+            ),
+          );
+        }
+        final data = snapshot.data!;
+        final cupos = data['cupos'] as Map<String, dynamic>? ?? {};
+        final participantes =
+            (data['participantes'] as List? ?? []).cast<Map<String, dynamic>>();
+
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Participantes',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                    Text(
+                      'Usados ${cupos['ocupados'] ?? cupos['usados'] ?? participantes.length}/${cupos['total'] ?? '-'}',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (participantes.isEmpty)
+                  const Text('Aún no hay participantes registrados')
+                else
+                  ...participantes.map((p) {
+                    final tipo = (p['tipoAsistente'] ?? '').toString();
+                    final checkIn = p['checkInEn']?.toString();
+                    final confirmado = p['confirmado'] == true;
+                    final nombre = p['nombre']?.toString() ?? 'Invitado';
+                    return ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                        confirmado || (checkIn != null && checkIn.isNotEmpty)
+                            ? Icons.check_circle
+                            : Icons.access_time,
+                        color: confirmado || (checkIn != null && checkIn.isNotEmpty)
+                            ? Colors.green
+                            : Colors.orange,
+                      ),
+                      title: Text(
+                        nombre,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        tipo,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      trailing: checkIn != null && checkIn.isNotEmpty
+                          ? Text(
+                              _fmtFecha(checkIn),
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontSize: 12,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              softWrap: false,
+                            )
+                          : null,
+                    );
+                  }),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  String _fmtFecha(String raw) {
+    try {
+      final dt = DateTime.parse(raw);
+      return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return raw;
+    }
   }
 }

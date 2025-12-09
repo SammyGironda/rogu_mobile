@@ -46,4 +46,6 @@ Importante: Cambia "Dirección IPv4" por la dirección IP de tu máquina local e
 
 ```bash
 flutter run -d 23129RA5FL --dart-define=API_BASE_URL=http://"IPV4 DE TU MÁQUINA LOCAL":3000/api
+flutter run -d 23129RA5FL --dart-define=API_BASE_URL=http://192.168.100.124:3000/api
+
 ```

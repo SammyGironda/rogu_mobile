@@ -7,7 +7,6 @@ import '../../../data/repositories/qr_repository.dart';
 import '../../state/providers.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/bottom_nav.dart';
-import '../../screens/bookings/booking_history_screen.dart';
 import 'dart:convert';
 
 class QRScannerScreen extends ConsumerStatefulWidget {
@@ -25,6 +24,7 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
   String? _lastCode;
   DateTime? _lastScanTime;
   final List<_ScanResult> _history = [];
+  Map<String, dynamic>? _lastResult;
 
   PaseAccesoResumen? pase;
   SedeAsignada? sede;
@@ -79,7 +79,26 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
       final msg = res['mensaje']?.toString() ?? (ok ? 'Acceso permitido' : 'Acceso denegado');
       final motivo = res['motivo']?.toString() ?? '';
 
+      // Actualizar usos del pase con la respuesta en vivo
+      if (pase != null && res['cupos'] is Map) {
+        final cupos = Map<String, dynamic>.from(res['cupos']);
+        final usados = cupos['usados'] is int
+            ? cupos['usados'] as int
+            : int.tryParse(cupos['usados']?.toString() ?? '');
+        final maximo = cupos['total'] is int
+            ? cupos['total'] as int
+            : int.tryParse(cupos['total']?.toString() ?? '');
+        setState(() {
+          pase = pase!.copyWith(
+            usados: usados ?? pase!.usados,
+            maximo: maximo ?? pase!.maximo,
+            estado: res['reserva']?['estado']?.toString() ?? pase!.estado,
+          );
+        });
+      }
+
       setState(() {
+        _lastResult = res;
         _history.insert(
           0,
           _ScanResult(
@@ -92,15 +111,6 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
       });
 
       _showSnackBar(msg, isError: !ok);
-
-      // Si fue exitoso, ir al historial en la pestaña Completadas
-      if (ok && mounted) {
-        Navigator.pushReplacementNamed(
-          context,
-          BookingHistoryScreen.routeName,
-          arguments: {BookingHistoryScreen.initialTabArg: 'completed'},
-        );
-      }
     } catch (e) {
       _showSnackBar('Error al validar: $e', isError: true);
     } finally {
@@ -179,6 +189,10 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
                 ),
               ),
               const SizedBox(height: 12),
+              if (_lastResult != null) ...[
+                _ResultCard(result: _lastResult!),
+                const SizedBox(height: 12),
+              ],
               if (_history.isNotEmpty)
                 Card(
                   child: Padding(
@@ -259,4 +273,109 @@ class _ScanResult {
     required this.timestamp,
     required this.code,
   });
+}
+
+class _ResultCard extends StatelessWidget {
+  final Map<String, dynamic> result;
+  const _ResultCard({required this.result});
+
+  @override
+  Widget build(BuildContext context) {
+    final reserva = result['reserva'] as Map<String, dynamic>? ?? {};
+    final asistente = result['asistente'] as Map<String, dynamic>? ?? {};
+    final cupos = result['cupos'] as Map<String, dynamic>? ?? {};
+
+    final sedeFoto = reserva['sedeFoto']?.toString();
+    final canchaFoto = reserva['canchaFoto']?.toString();
+    final fotos = [sedeFoto, canchaFoto]
+        .whereType<String>()
+        .where((e) => e.isNotEmpty)
+        .toList();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  result['valido'] == true ? Icons.verified : Icons.error,
+                  color: result['valido'] == true ? Colors.green : Colors.red,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    result['mensaje']?.toString() ?? '',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (fotos.isNotEmpty)
+              SizedBox(
+                height: 120,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemBuilder: (_, i) => ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.network(
+                      fotos[i],
+                      width: 160,
+                      height: 120,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        width: 160,
+                        height: 120,
+                        color: Colors.grey.shade200,
+                        child: const Icon(Icons.image_not_supported),
+                      ),
+                    ),
+                  ),
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemCount: fotos.length,
+                ),
+              ),
+            const SizedBox(height: 8),
+            Text(
+              reserva['cancha']?.toString() ?? 'Cancha',
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            if (reserva['sede'] != null)
+              Text(reserva['sede'].toString(), style: const TextStyle(color: Colors.grey)),
+    if (reserva['horario'] != null)
+      Text('Horario: ${reserva['horario']}', style: const TextStyle(color: Colors.grey)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.group, size: 16),
+                const SizedBox(width: 6),
+                Text(
+                  'Cupos usados ${cupos['usados'] ?? '-'} / ${cupos['total'] ?? '-'}',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+            if (asistente.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  const Icon(Icons.person, size: 16),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      '${asistente['nombre'] ?? 'Invitado'} (${asistente['tipo'] ?? ''})',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
 }
