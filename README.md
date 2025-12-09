@@ -25,7 +25,7 @@ Correr la Aplicación en el Dispositivo
 Una vez que identifiques el ID de t
 
 ```bash
-flutter run -d 23090RA98G 
+flutter run -d 23129RA5FL 
 ```
 
 ## Si estas usando emulador
@@ -38,6 +38,12 @@ flutter emulators
 flutter run -d emulator-5554
 
 flutter run -d 23129RA5FL
+```
 
-flutter run -d 23129RA5FL --dart-define=API_BASE_URL=http://"Dirección IPv4".:3000/api
+## Para emulador y dispositivo conectado
+
+Importante: Cambia "Dirección IPv4" por la dirección IP de tu máquina local en la red y en el dispositivo móvil.
+
+```bash
+flutter run -d 23129RA5FL --dart-define=API_BASE_URL=http://"IPV4 DE TU MÁQUINA LOCAL":3000/api
 ```
